@@ -53,9 +53,4 @@
     .preview-banner a:hover {
         text-decoration: underline;
     }
-
-    .preview-banner svg {
-        width: 11px;
-        height: 11px;
-    }
 </style>
