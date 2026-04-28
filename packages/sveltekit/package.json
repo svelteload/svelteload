@@ -21,6 +21,7 @@
     "@sendgrid/mail": "^8",
     "@sveltejs/kit": "^2",
     "@svelteload/payload": "*",
+    "cookie": "^1",
     "payload": "^3",
     "payload-config": "*",
     "project-meta": "*"
@@ -32,6 +33,7 @@
     "@sendgrid/mail": "^8.1.6",
     "@sveltejs/kit": "^2.57.1",
     "@svelteload/payload": "workspace:*",
+    "cookie": "^1.1.1",
     "payload": "3.83.0",
     "payload-config": "workspace:*",
     "project-meta": "workspace:*",

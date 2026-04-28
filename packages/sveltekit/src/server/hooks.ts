@@ -1,5 +1,8 @@
 import type { Handle } from '@sveltejs/kit'
+import { parse } from 'cookie'
 import { PUBLIC_PAYLOAD_ADMIN_URL, PUBLIC_PREVIEW_URL } from '$env/static/public'
+import { payloadConfigBase } from 'payload-config/payload-base.config'
+import { projectMeta } from 'project-meta/projectMeta'
 import { validatePreviewToken, PREVIEW_COOKIE_NAME, PREVIEW_QUERY_PARAM } from './previewAuth'
 import { resolveAdminUrlForPath } from './resolveAdminUrlForPath'
 
@@ -129,8 +132,37 @@ function isStaticAsset(pathname: string): boolean {
     )
 }
 
+function isLocaleBypassPath(pathname: string): boolean {
+    if (
+        pathname.startsWith('/api') ||
+        pathname.startsWith('/media') ||
+        pathname.includes('.well-known') ||
+        pathname.endsWith('favicon.ico') ||
+        pathname.endsWith('favicon.png') ||
+        pathname.endsWith('robots.txt') ||
+        pathname.endsWith('sitemap.xml') ||
+        pathname.endsWith('.json') ||
+        pathname.endsWith('.xml') ||
+        pathname.endsWith('.txt')
+    ) return true
+    const extras = (projectMeta as { localeBypassPaths?: string[] }).localeBypassPaths
+    if (extras && extras.length > 0) {
+        return extras.some(prefix => pathname.startsWith(prefix))
+    }
+    return false
+}
+
+function getLocaleConfig(): { locales: string[], defaultLocale: string } | null {
+    const loc = (payloadConfigBase as { localization?: any }).localization
+    if (!loc) return null
+    const rawLocales = loc.locales as Array<string | { code: string }> | undefined
+    const locales = rawLocales?.map(l => typeof l === 'string' ? l : l.code).filter(Boolean) as string[] | undefined
+    if (!locales || locales.length === 0) return null
+    return { locales, defaultLocale: loc.defaultLocale ?? locales[0] }
+}
+
 export const handle: Handle = async ({ event, resolve }) => {
-    const { url } = event
+    const { url, request } = event
     const adminUrl = PUBLIC_PAYLOAD_ADMIN_URL
 
     if (blockedPatterns.some(pattern => pattern.test(url.pathname))) {
@@ -146,7 +178,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
     const isPreviewHost = PREVIEW_HOST !== null && event.url.host === PREVIEW_HOST
     event.locals.isPreview = isPreviewHost
-    event.locals.isInIframe = event.request.headers.get('sec-fetch-dest') === 'iframe'
+    event.locals.isInIframe = request.headers.get('sec-fetch-dest') === 'iframe'
 
     if (isPreviewHost && !isStaticAsset(url.pathname) && !(await previewAuthOk(event))) {
         const deepLinkUrl = await resolveAdminUrlForPath(url.pathname, adminUrl).catch(() => null)
@@ -159,7 +191,42 @@ export const handle: Handle = async ({ event, resolve }) => {
         })
     }
 
-    const response = await resolve(event)
+    const localeConfig = getLocaleConfig()
+    let currentLang: string | null = null
+
+    if (localeConfig && !isLocaleBypassPath(url.pathname)) {
+        const { locales, defaultLocale } = localeConfig
+        const langMatch = /^\/([a-z]{2})(\/|$)/.exec(url.pathname)
+        currentLang = langMatch ? langMatch[1] : null
+
+        if (!currentLang || !locales.includes(currentLang)) {
+            const cookies = parse(request.headers.get('cookie') || '')
+            let detectedLang = cookies['lang']
+
+            if (!detectedLang || !locales.includes(detectedLang)) {
+                const acceptLang = request.headers.get('accept-language')
+                const browserLangs = acceptLang
+                    ? acceptLang.split(',').map(l => l.split('-')[0].split(';')[0].trim())
+                    : []
+                detectedLang = browserLangs.find(l => locales.includes(l)) || defaultLocale
+            }
+
+            const pathWithoutLang = currentLang ? url.pathname.replace(`/${currentLang}`, '') : url.pathname
+            const newPath = `/${detectedLang}${pathWithoutLang === '/' ? '' : pathWithoutLang}`
+            return new Response(null, {
+                status: 302,
+                headers: { Location: newPath + url.search },
+            })
+        }
+    }
+
+    const response = await resolve(event, {
+        transformPageChunk: ({ html }) => {
+            if (currentLang) return html.replace('%sveltekit.lang%', currentLang)
+            return html
+        },
+    })
+
     if (!isPreviewHost) return response
     const contentType = response.headers.get('content-type') ?? ''
     if (!contentType.includes('text/html')) return response
