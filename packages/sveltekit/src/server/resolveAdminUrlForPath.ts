@@ -1,10 +1,6 @@
-import { frontendRoutes } from 'project-meta/frontendRoutes'
+import { projectMeta } from 'project-meta/projectMeta'
 import { getPayloadInstance } from './payload'
-
-export type CollectionRoute = {
-    collection: string
-    matcher: (pathname: string) => Record<string, unknown> | null
-}
+import { resolveUrlToDoc } from './routableUrls'
 
 export async function resolveAdminUrlForPath(
     pathname: string,
@@ -15,27 +11,13 @@ export async function resolveAdminUrlForPath(
     const payload = await getPayloadInstance()
     const trimmedAdmin = adminBaseUrl.replace(/\/$/, '')
 
-    for (const route of frontendRoutes) {
-        const where = route.matcher(pathname)
-        if (!where) continue
-
-        try {
-            const result = await payload.find({
-                collection: route.collection as any,
-                where: where as any,
-                draft: true,
-                depth: 0,
-                limit: 1,
-                overrideAccess: true,
-            })
-            const doc = result.docs[0] as { id?: string | number } | undefined
-            if (doc?.id) {
-                return `${trimmedAdmin}/admin/collections/${route.collection}/${doc.id}`
-            }
-        } catch {}
+    try {
+        const hit = await resolveUrlToDoc(payload, projectMeta, pathname)
+        if (!hit) return null
+        return `${trimmedAdmin}/admin/collections/${hit.collection}/${hit.id}`
+    } catch {
+        return null
     }
-
-    return null
 }
 
 export function buildAdminEditUrl(
