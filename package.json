@@ -1,0 +1,22 @@
+{
+  "name": "svelteload",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The svelteload platform: shared Payload + SvelteKit code consumed as a git submodule by each svelteload site.",
+  "license": "SEE LICENSE IN LICENSE",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "check": "turbo run check",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "turbo": "^2.9.6",
+    "typescript": "^6.0.3"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": "^24.13.0",
+    "pnpm": "^10"
+  }
+}
