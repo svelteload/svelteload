@@ -10,12 +10,6 @@
     let viewportHeight = $state(0)
     let liftPx = $state(0)
 
-    /**
-     * Lift the button up if the page footer's legal section enters the
-     * viewport, so it doesn't overlap. Selector matches both ECSA's and
-     * nodebrush-website's footer markup. Projects whose footer doesn't
-     * have this element get liftPx=0 (no lift, button stays bottom-right).
-     */
     $effect(() => {
         scrollY
         viewportHeight

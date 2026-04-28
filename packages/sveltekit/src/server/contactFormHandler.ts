@@ -13,28 +13,6 @@ import { PUBLIC_SITE_URL } from '$env/static/public'
 import { getPayloadInstance } from './payload'
 import { wrapEmailHtml, escapeHtml, escapeHtmlMultiline, dropEmptyContent } from './emailShell'
 
-/**
- * Generic contact-form POST handler used by every svelteload site's
- * `/api/send-email` route. Reads its config from `process.env`:
- *
- *   SENDGRID_API_KEY            - required
- *   GOOGLE_CLOUD_PROJECT_ID     - required
- *   GOOGLE_CLOUD_CLIENT_EMAIL   - required
- *   GOOGLE_CLOUD_PRIVATE_KEY    - required
- *   RECAPTCHA_SITE_KEY          - required (paired with the public site key)
- *   DISCORD_WEBHOOK_URL         - optional, used for failure notifications
- *   PUBLIC_SITE_URL             - shown as a link in the email footer
- *
- * Per-project copy + branding (recipient address, subject + message templates,
- * project name, logo URL) come from the contact-form-section block in the
- * page's payload-config and are passed in the request body alongside the
- * form data, so the handler stays project-agnostic.
- *
- * Persists every submission to the `messages` collection. On send failure
- * the row is updated to `delivery_failed` with the error message and a
- * Discord notification fires (if `DISCORD_WEBHOOK_URL` is set).
- */
-
 let recaptchaClientCache: RecaptchaEnterpriseServiceClient | null = null
 
 function getRecaptchaClient(): RecaptchaEnterpriseServiceClient {
@@ -148,8 +126,6 @@ export const POST: RequestHandler = async ({ request }) => {
             console.error('Message DB persist failed:', dbError)
         }
 
-        // Subject templates fill with plain text; HTML templates fill with
-        // escaped values so customer input can't break the email layout.
         const textVars = {
             full_name: contactFormData.full_name || '',
             email: contactFormData.email || '',

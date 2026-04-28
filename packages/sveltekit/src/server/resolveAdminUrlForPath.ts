@@ -1,4 +1,4 @@
-import { frontendRoutes } from 'payload-config/frontendRoutes'
+import { frontendRoutes } from 'project-meta/frontendRoutes'
 import { getPayloadInstance } from './payload'
 
 export type CollectionRoute = {
@@ -6,16 +6,6 @@ export type CollectionRoute = {
     matcher: (pathname: string) => Record<string, unknown> | null
 }
 
-/**
- * Resolves a request path on the public site to the corresponding admin doc
- * URL, e.g. `/services/x` → `<admin>/collections/pages/<id>`. Returns null
- * if no preview-eligible collection has a doc at that path. Used by the
- * gatekeeper "Open CMS" button so it deep-links instead of dropping users
- * at the admin root.
- *
- * The route table is per-project and lives in `payload-config/frontendRoutes`,
- * imported via the workspace package name so this works in every project.
- */
 export async function resolveAdminUrlForPath(
     pathname: string,
     adminBaseUrl: string | undefined,
@@ -42,10 +32,7 @@ export async function resolveAdminUrlForPath(
             if (doc?.id) {
                 return `${trimmedAdmin}/admin/collections/${route.collection}/${doc.id}`
             }
-        } catch {
-            // Try next matcher; missing collection or transient error
-            // shouldn't break gatekeeper rendering.
-        }
+        } catch {}
     }
 
     return null

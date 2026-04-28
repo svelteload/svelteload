@@ -3,7 +3,7 @@ import { isAdmin, isAdminOrSelf } from '@cms/access/roles'
 import { roleField } from '@cms/fields/roleField'
 import { apiKeyFields } from '@cms/fields/apiKeyFields'
 import { forgotPasswordEmail } from '@cms/email/forgotPasswordEmail'
-import { projectMeta } from 'payload-config/projectMeta'
+import { projectMeta } from 'project-meta/projectMeta'
 
 const adminUrl = process.env.PUBLIC_PAYLOAD_ADMIN_URL || 'http://localhost:3000'
 const frontendUrl = process.env.PUBLIC_SITE_URL || 'http://localhost:5173'

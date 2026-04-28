@@ -22,7 +22,8 @@
     "@sveltejs/kit": "^2",
     "@svelteload/payload": "*",
     "payload": "^3",
-    "payload-config": "*"
+    "payload-config": "*",
+    "project-meta": "*"
   },
   "devDependencies": {
     "@google-cloud/recaptcha-enterprise": "^6.4.0",
@@ -33,6 +34,7 @@
     "@svelteload/payload": "workspace:*",
     "payload": "3.83.0",
     "payload-config": "workspace:*",
+    "project-meta": "workspace:*",
     "typescript": "^6.0.3"
   }
 }

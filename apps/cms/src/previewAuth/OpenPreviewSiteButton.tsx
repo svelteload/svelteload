@@ -3,15 +3,6 @@
 import React, { useEffect, useState } from 'react'
 import { useDocumentInfo } from '@payloadcms/ui'
 
-/**
- * Document-header action link for collections with live preview. Fetches
- * the preview URL once on mount and renders a plain `<a target="_blank">`
- * so clicks navigate instantly without a per-click roundtrip.
- *
- * Sits between the Copy preview URL button and Payload's native eye icon
- * for live-preview, giving editors a one-click way to see a draft on the
- * real preview subdomain in a fresh tab.
- */
 export default function OpenPreviewSiteButton() {
   const { id, collectionSlug } = useDocumentInfo()
   const [url, setUrl] = useState<string | null>(null)

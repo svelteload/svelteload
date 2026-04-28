@@ -1,18 +1,8 @@
 import type { CollectionConfig } from 'payload'
 import { isAdminOrEditor } from '@cms/access/roles'
-import { projectMeta } from 'payload-config/projectMeta'
+import { projectMeta } from 'project-meta/projectMeta'
 import { BASE_IMAGE_SIZES } from '../imageSizes'
 
-/**
- * Shared Media collection. Per-project values come from
- * `payload-config/projectMeta`:
- *
- *  - `mediaUrlBase` — the bucket-served domain. The `afterRead` hook rewrites
- *    `doc.url` and every size url to this domain, so the frontend gets stable
- *    public URLs regardless of how Payload's storage adapter is configured.
- *  - `additionalImageSizes` — extra sizes appended after the canonical
- *    `BASE_IMAGE_SIZES`, for projects that need bespoke crops (e.g. icons).
- */
 export const Media: CollectionConfig = {
     slug: 'media',
     hooks: {

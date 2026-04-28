@@ -3,30 +3,6 @@ import { PUBLIC_PAYLOAD_ADMIN_URL, PUBLIC_PREVIEW_URL } from '$env/static/public
 import { validatePreviewToken, PREVIEW_COOKIE_NAME, PREVIEW_QUERY_PARAM } from './previewAuth'
 import { resolveAdminUrlForPath } from './resolveAdminUrlForPath'
 
-/**
- * Canonical svelteload hooks. Every project's `apps/web/src/hooks.server.ts`
- * is a one-line re-export of `handle` from this module.
- *
- * Reads its config from `process.env`:
- *
- *   PUBLIC_PAYLOAD_ADMIN_URL  - cms admin origin (for the gatekeeper "Open CMS" deep-link)
- *   PUBLIC_PREVIEW_URL        - preview-subdomain origin; requests whose host matches this trigger preview-gate behavior
- *
- * Behavior:
- *
- *  1. Blocks common scanner/recon paths (.php, wp-*, .env, etc) with 404
- *  2. 301-redirects any uppercase URL path to its lowercase equivalent
- *  3. Sets `event.locals.isPreview` (host matches preview-host) and
- *     `event.locals.isInIframe` (Sec-Fetch-Dest: iframe — true inside Payload's
- *     live-preview pane, used by the layout to hide the preview banner)
- *  4. On the preview host without a valid `preview_key` query or cookie:
- *     renders a 401 gatekeeper page with an "Open CMS" link that deep-links
- *     to the requested page in admin (or admin root if no doc matches)
- *  5. Otherwise resolves the request normally; on the preview host inlines
- *     external CSS so the gatekeeper / preview iframe doesn't depend on
- *     same-origin asset URLs
- */
-
 const PREVIEW_HOST: string | null = (() => {
     if (!PUBLIC_PREVIEW_URL) return null
     try { return new URL(PUBLIC_PREVIEW_URL).host } catch { return null }

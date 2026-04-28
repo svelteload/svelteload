@@ -3,17 +3,6 @@
 import React, { useState } from 'react'
 import { useDocumentInfo } from '@payloadcms/ui'
 
-/**
- * Document-header action button for collections with live preview. Calls
- * GET /api/preview-url, gets back the same URL the live-preview iframe uses
- * (including the user's preview_key), and writes it to the clipboard.
- *
- * Hidden on new/unsaved documents (no id yet, no URL to build).
- *
- * Wired in automatically by previewAuthPlugin for every collection listed in
- * admin.livePreview.collections, so projects get this button without any
- * per-project config.
- */
 export default function CopyPreviewUrlButton() {
   const { id, collectionSlug } = useDocumentInfo()
   const [state, setState] = useState<'idle' | 'loading' | 'copied' | 'error'>('idle')

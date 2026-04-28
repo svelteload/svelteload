@@ -12,7 +12,6 @@ export const BASE_IMAGE_SIZES: ImageSize[] = [
     { name: 'portrait_medium', width: 768, height: 1024, position: 'centre', formatOptions: { format: 'webp', options: { quality: 75 } } },
 ]
 
-
 export const IMAGE_SRCSET_WIDTHS = {
     thumbnail: 300,
     small: 480,

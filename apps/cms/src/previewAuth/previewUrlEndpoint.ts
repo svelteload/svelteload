@@ -1,17 +1,5 @@
 import type { Endpoint } from 'payload'
 
-/**
- * GET /api/preview-url?collection=<slug>&id=<id>
- *
- * Returns the same URL that Payload's live-preview iframe would use for this
- * document, including the calling user's preview_key. Lets us render a
- * "Copy preview URL" button in the admin without duplicating the URL-building
- * logic that already lives in the project's `livePreview.url` callback.
- *
- * Requires an authenticated Payload user. The mint helper inside
- * `livePreview.url` will reuse the user's existing token (no explosion of
- * keys from repeated clicks).
- */
 export const previewUrlEndpoint: Endpoint = {
   path: '/preview-url',
   method: 'get',

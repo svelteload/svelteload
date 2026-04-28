@@ -2,23 +2,6 @@ import type { Config, Plugin, CollectionConfig, Field } from 'payload'
 import { isAdminFieldAccess } from '@cms/access/roles'
 import { previewUrlEndpoint } from './previewUrlEndpoint'
 
-/**
- * Plugin that wires up on top of the PreviewKeys + AccessLogs collections
- * (which live in the shared base config so both admin and frontend Payload
- * instances know about them):
- *  - afterLogin / afterLogout hooks on the auth-user collection that write
- *    access-log rows (captures ip + user-agent when available)
- *  - Admin-only join fields on the auth-user collection that render tables
- *    of that user's access logs and preview keys at the bottom of their
- *    edit view (no custom component needed, Payload renders native lists)
- *  - Registers GET /api/preview-url, the endpoint the Copy Preview URL
- *    button calls to get a shareable URL for the current document
- *  - Injects the Copy Preview URL button into the document header of every
- *    collection listed in `admin.livePreview.collections`
- *
- * Admin-only because the frontend never logs users in and never renders the
- * admin UI, so these extensions would be dead weight there.
- */
 export const previewAuthPlugin = (): Plugin => (incomingConfig: Config): Config => {
   const authSlug = incomingConfig.admin?.user
   if (!authSlug) return incomingConfig
