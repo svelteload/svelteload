@@ -5,7 +5,16 @@
     import { renderSnippet, stripMarkers } from '../../search/renderSnippet'
     import { stashHighlight, stashHandoff } from '../../search/sessionState'
 
-    let { isOpen = $bindable(false), seed = $bindable('') }: { isOpen?: boolean; seed?: string } = $props()
+    let {
+        isOpen = $bindable(false),
+        seed = $bindable(''),
+        searchPath = '/search',
+        locale,
+    }: { isOpen?: boolean; seed?: string; searchPath?: string; locale?: string } = $props()
+
+    function buildSearchUrl(q: string): string {
+        return `${searchPath}?q=${encodeURIComponent(q)}`
+    }
 
     let query = $state('')
     let response = $state<SearchResponse | null>(null)
@@ -65,7 +74,7 @@
         currentController = new AbortController()
         loading = true
         const controller = currentController
-        searchQuery({ query: q, limit: 20, signal: controller.signal })
+        searchQuery({ query: q, locale, limit: 20, signal: controller.signal })
             .then((res) => {
                 if (controller.signal.aborted) return
                 response = res
@@ -97,7 +106,7 @@
         if (!query.trim()) return
         stashHandoff({ query })
         isOpen = false
-        goto('/search')
+        goto(buildSearchUrl(query))
     }
 
     const OVERLAY_MAX = 5
@@ -127,7 +136,7 @@
     role="dialog"
     aria-label="Search"
 >
-    <form class="search-form" onsubmit={onSubmit}>
+    <form class="search-form" action={searchPath} onsubmit={onSubmit}>
         <span class="search-icon" aria-hidden="true">
             <Icons icon="search" size={18}/>
         </span>
@@ -136,6 +145,7 @@
             bind:value={query}
             oninput={onInput}
             type="search"
+            name="q"
             placeholder="Search…"
             autocomplete="off"
             spellcheck="false"
@@ -178,9 +188,13 @@
                         {/each}
                     </div>
                 {/each}
-                <button type="button" class="see-all" onclick={() => { stashHandoff({ query }); isOpen = false; goto('/search') }}>
+                <a
+                    class="see-all"
+                    href={buildSearchUrl(query)}
+                    onclick={() => { stashHandoff({ query }); isOpen = false }}
+                >
                     See all {response.totalHits} results →
-                </button>
+                </a>
             {/if}
         </div>
     {/if}
@@ -365,16 +379,17 @@
     .see-all {
         display: block;
         width: 100%;
+        box-sizing: border-box;
         text-align: center;
         padding: 12px;
         margin-top: 4px;
         background: transparent;
-        border: none;
         border-top: 1px solid var(--accent-soft, #f4eef8);
         color: var(--accent, #693e90);
         font-size: 13px;
         font-weight: 600;
         font-family: var(--font, sans-serif);
+        text-decoration: none;
         cursor: pointer;
         transition: background 0.2s ease;
     }
