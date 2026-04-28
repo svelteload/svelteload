@@ -1,4 +1,5 @@
 import type { Handle } from '@sveltejs/kit'
+import { PUBLIC_PAYLOAD_ADMIN_URL, PUBLIC_PREVIEW_URL } from '$env/static/public'
 import { validatePreviewToken, PREVIEW_COOKIE_NAME, PREVIEW_QUERY_PARAM } from './previewAuth'
 import { resolveAdminUrlForPath } from './resolveAdminUrlForPath'
 
@@ -27,9 +28,8 @@ import { resolveAdminUrlForPath } from './resolveAdminUrlForPath'
  */
 
 const PREVIEW_HOST: string | null = (() => {
-    const url = process.env.PUBLIC_PREVIEW_URL
-    if (!url) return null
-    try { return new URL(url).host } catch { return null }
+    if (!PUBLIC_PREVIEW_URL) return null
+    try { return new URL(PUBLIC_PREVIEW_URL).host } catch { return null }
 })()
 
 const blockedPatterns = [
@@ -155,7 +155,7 @@ function isStaticAsset(pathname: string): boolean {
 
 export const handle: Handle = async ({ event, resolve }) => {
     const { url } = event
-    const adminUrl = process.env.PUBLIC_PAYLOAD_ADMIN_URL
+    const adminUrl = PUBLIC_PAYLOAD_ADMIN_URL
 
     if (blockedPatterns.some(pattern => pattern.test(url.pathname))) {
         return new Response('Not Found', { status: 404 })

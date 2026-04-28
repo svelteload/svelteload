@@ -1,6 +1,15 @@
 import sgMail from '@sendgrid/mail'
 import type { RequestHandler } from '@sveltejs/kit'
 import { RecaptchaEnterpriseServiceClient } from '@google-cloud/recaptcha-enterprise'
+import {
+    SENDGRID_API_KEY,
+    GOOGLE_CLOUD_PROJECT_ID,
+    GOOGLE_CLOUD_CLIENT_EMAIL,
+    GOOGLE_CLOUD_PRIVATE_KEY,
+    RECAPTCHA_SITE_KEY,
+    DISCORD_WEBHOOK_URL,
+} from '$env/static/private'
+import { PUBLIC_SITE_URL } from '$env/static/public'
 import { getPayloadInstance } from './payload'
 import { wrapEmailHtml, escapeHtml, escapeHtmlMultiline, dropEmptyContent } from './emailShell'
 
@@ -31,12 +40,12 @@ let recaptchaClientCache: RecaptchaEnterpriseServiceClient | null = null
 function getRecaptchaClient(): RecaptchaEnterpriseServiceClient {
     if (recaptchaClientCache) return recaptchaClientCache
     recaptchaClientCache = new RecaptchaEnterpriseServiceClient({
-        projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
+        projectId: GOOGLE_CLOUD_PROJECT_ID,
         credentials: {
             type: 'service_account',
-            project_id: process.env.GOOGLE_CLOUD_PROJECT_ID,
-            private_key: process.env.GOOGLE_CLOUD_PRIVATE_KEY,
-            client_email: process.env.GOOGLE_CLOUD_CLIENT_EMAIL,
+            project_id: GOOGLE_CLOUD_PROJECT_ID,
+            private_key: GOOGLE_CLOUD_PRIVATE_KEY,
+            client_email: GOOGLE_CLOUD_CLIENT_EMAIL,
         },
     })
     return recaptchaClientCache
@@ -45,21 +54,20 @@ function getRecaptchaClient(): RecaptchaEnterpriseServiceClient {
 let sgMailReady = false
 function ensureSgMail(): void {
     if (sgMailReady) return
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY ?? '')
+    sgMail.setApiKey(SENDGRID_API_KEY)
     sgMailReady = true
 }
 
 async function verifyRecaptcha(token: string): Promise<boolean> {
     try {
         const client = getRecaptchaClient()
-        const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID ?? ''
-        const projectPath = client.projectPath(projectId)
+        const projectPath = client.projectPath(GOOGLE_CLOUD_PROJECT_ID)
         const [response] = await client.createAssessment({
             parent: projectPath,
             assessment: {
                 event: {
                     token,
-                    siteKey: process.env.RECAPTCHA_SITE_KEY,
+                    siteKey: RECAPTCHA_SITE_KEY,
                 },
             },
         })
@@ -71,10 +79,9 @@ async function verifyRecaptcha(token: string): Promise<boolean> {
 }
 
 async function sendDiscordNotification(title: string, message: string, color: number = 15158332) {
-    const webhook = process.env.DISCORD_WEBHOOK_URL
-    if (!webhook) return
+    if (!DISCORD_WEBHOOK_URL) return
     try {
-        await fetch(webhook, {
+        await fetch(DISCORD_WEBHOOK_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -161,7 +168,7 @@ export const POST: RequestHandler = async ({ request }) => {
         }
 
         const projectName = contactSettingsData.email_project_name || ''
-        const siteUrl = process.env.PUBLIC_SITE_URL || ''
+        const siteUrl = PUBLIC_SITE_URL || ''
         const logoUrl = contactSettingsData.email_logo_url || undefined
 
         const yourInnerHtml = dropEmptyContent(
