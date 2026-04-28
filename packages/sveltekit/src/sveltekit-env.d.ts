@@ -14,3 +14,10 @@ declare module '$env/static/public' {
     export const PUBLIC_PREVIEW_URL: string
     export const PUBLIC_PAYLOAD_ADMIN_URL: string
 }
+
+declare namespace App {
+    interface Locals {
+        isPreview: boolean
+        isInIframe: boolean
+    }
+}
