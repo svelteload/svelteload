@@ -15,10 +15,16 @@
     "check": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@payloadcms/richtext-lexical": "^3"
+    "@payloadcms/db-postgres": "^3",
+    "@payloadcms/richtext-lexical": "^3",
+    "payload": "^3",
+    "payload-config": "*"
   },
   "devDependencies": {
+    "@payloadcms/db-postgres": "3.83.0",
     "@payloadcms/richtext-lexical": "3.83.0",
+    "payload": "3.83.0",
+    "payload-config": "workspace:*",
     "typescript": "^6.0.3"
   }
 }
