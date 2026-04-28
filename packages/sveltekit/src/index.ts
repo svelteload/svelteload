@@ -1,6 +1,7 @@
 // @svelteload/sveltekit
 //
-// Shared SvelteKit code: server helpers, search, components, utils.
-// Currently empty; content migrates here from existing per-project apps/sveltekit-frontend
-// directories as part of the platform setup (see obsidian platform_setup.md).
+// Shared SvelteKit code consumed via the svelteload submodule from each
+// project's apps/web. Content lives in subpath modules; this index file
+// is intentionally empty so consumers always import from explicit subpaths
+// (e.g. `from '@svelteload/sveltekit/utils/lexicalConverter'`).
 export {}

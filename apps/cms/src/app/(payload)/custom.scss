@@ -1,0 +1,58 @@
+.preview-action-toggler {
+    border: 1px solid;
+    border-color: var(--theme-elevation-100);
+    border-radius: var(--style-radius-s);
+    line-height: var(--btn-line-height);
+    font-size: var(--base-body-size);
+    padding: calc(var(--base) * .2) calc(var(--base) * .4);
+    cursor: pointer;
+    height: calc(var(--base) * 1.6);
+    width: calc(var(--base) * 1.6);
+    background: none;
+    transition-property: border, color, background;
+    transition-duration: .1s;
+    transition-timing-function: cubic-bezier(0, .2, .2, 1);
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: inherit;
+}
+
+.preview-action-toggler:hover {
+    border-color: var(--theme-elevation-300);
+    background-color: var(--theme-elevation-100);
+}
+
+.preview-action-toggler:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+
+.preview-action-toggler .icon {
+    width: 14px;
+    height: 14px;
+}
+
+.preview-action-toggler .icon .stroke {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.blocks-drawer__default-image img, .blocks-drawer__default-image svg {
+    object-fit: contain;
+}
+
+.thumbnail-card {
+    padding: 0;
+    transition: transform 0.3s ease;
+    border: none;
+}
+
+.thumbnail-card--has-on-click:hover, .thumbnail-card--has-on-click:focus, .thumbnail-card--has-on-click:active {
+    border: none;
+    transform: translateY(-2px) scale(1.01);
+}

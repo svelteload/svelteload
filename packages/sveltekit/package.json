@@ -8,12 +8,17 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./*": "./src/*"
+    "./*": "./src/*.ts",
+    "./*.svelte": "./src/*.svelte"
   },
   "scripts": {
     "check": "tsc --noEmit"
   },
+  "peerDependencies": {
+    "@payloadcms/richtext-lexical": "^3"
+  },
   "devDependencies": {
+    "@payloadcms/richtext-lexical": "3.83.0",
     "typescript": "^6.0.3"
   }
 }

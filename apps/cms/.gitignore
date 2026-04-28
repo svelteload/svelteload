@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+.turbo/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Next.js
+.next/
+out/
+
+# Environment
+.env
+.env.local
+
+# Vercel
+.vercel/
+
+public/
+
+src/app/(payload)/admin/importMap.js
