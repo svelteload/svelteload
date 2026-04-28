@@ -1,11 +1,12 @@
 <script lang="ts">
-    import Icons from '../ui/Icons.svelte'
+    import type { Snippet } from 'svelte'
 
     interface Props {
         scrollY: number
+        icon: Snippet
     }
 
-    let { scrollY = $bindable() }: Props = $props()
+    let { scrollY = $bindable(), icon }: Props = $props()
 
     let viewportHeight = $state(0)
     let liftPx = $state(0)
@@ -39,7 +40,7 @@
     onclick={scrollTop}
     style:transform="translateY(-{liftPx}px)"
 >
-    <span class="scroll-top-icon"><Icons icon="up" size={36}/></span>
+    <span class="scroll-top-icon">{@render icon()}</span>
 </button>
 
 <style>

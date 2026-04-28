@@ -47,6 +47,7 @@ export const Media: CollectionConfig = {
         {
             name: 'alt',
             type: 'text',
+            localized: true,
             admin: {
                 description: 'Alt text for accessibility',
             },

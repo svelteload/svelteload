@@ -1,4 +1,6 @@
 <script lang="ts">
+    import Icons from '../ui/Icons.svelte'
+
     let { editUrl }: { editUrl: string | null } = $props()
 </script>
 
@@ -7,11 +9,7 @@
     {#if editUrl}
         <a href={editUrl} target="_blank" rel="noopener">
             Edit
-            <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <path d="M9 2h5v5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M14 2 7.5 8.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <path d="M12 9v4a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+            <Icons icon="external-link" size={11} strokeWidth={1.5}/>
         </a>
     {/if}
 </div>

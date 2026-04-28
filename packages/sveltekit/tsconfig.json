@@ -1,9 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "@cms/*": ["../../apps/cms/src/*"],
+      "@payload-config/*": ["../../../packages/payload-config/src/*"]
+    }
   },
   "include": ["src/**/*"]
 }

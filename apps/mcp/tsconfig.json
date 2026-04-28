@@ -14,7 +14,8 @@
     "isolatedModules": true,
     "target": "ES2022",
     "paths": {
-      "@payload-config/*": ["../../../packages/payload-config/src/*"]
+      "@payload-config/*": ["../../../packages/payload-config/src/*"],
+      "@cms/*": ["../cms/src/*"]
     }
   },
   "include": ["src/**/*"],
