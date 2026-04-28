@@ -13,7 +13,13 @@
   "scripts": {
     "check": "tsc --noEmit"
   },
+  "peerDependencies": {
+    "payload": "^3",
+    "payload-config": "*"
+  },
   "devDependencies": {
+    "payload": "3.83.0",
+    "payload-config": "workspace:*",
     "typescript": "^6.0.3"
   }
 }

@@ -15,14 +15,20 @@
     "check": "tsc --noEmit"
   },
   "peerDependencies": {
+    "@google-cloud/recaptcha-enterprise": "^6",
     "@payloadcms/db-postgres": "^3",
     "@payloadcms/richtext-lexical": "^3",
+    "@sendgrid/mail": "^8",
+    "@sveltejs/kit": "^2",
     "payload": "^3",
     "payload-config": "*"
   },
   "devDependencies": {
+    "@google-cloud/recaptcha-enterprise": "^6.4.0",
     "@payloadcms/db-postgres": "3.83.0",
     "@payloadcms/richtext-lexical": "3.83.0",
+    "@sendgrid/mail": "^8.1.6",
+    "@sveltejs/kit": "^2.57.1",
     "payload": "3.83.0",
     "payload-config": "workspace:*",
     "typescript": "^6.0.3"
