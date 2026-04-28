@@ -1,0 +1,150 @@
+import type { CollectionConfig } from 'payload'
+import { isAdminOrEditor } from '@cms/access/roles'
+import { projectMeta } from 'payload-config/projectMeta'
+import { BASE_IMAGE_SIZES } from '../imageSizes'
+
+/**
+ * Shared Media collection. Per-project values come from
+ * `payload-config/projectMeta`:
+ *
+ *  - `mediaUrlBase` — the bucket-served domain. The `afterRead` hook rewrites
+ *    `doc.url` and every size url to this domain, so the frontend gets stable
+ *    public URLs regardless of how Payload's storage adapter is configured.
+ *  - `additionalImageSizes` — extra sizes appended after the canonical
+ *    `BASE_IMAGE_SIZES`, for projects that need bespoke crops (e.g. icons).
+ */
+export const Media: CollectionConfig = {
+    slug: 'media',
+    hooks: {
+        afterRead: [
+            ({ doc }) => {
+                const base = projectMeta.mediaUrlBase.replace(/\/$/, '')
+                if (doc.filename) {
+                    doc.url = `${base}/${doc.filename}`
+                }
+                if (doc.sizes) {
+                    for (const size of Object.values(doc.sizes as Record<string, any>)) {
+                        if (size?.filename) {
+                            size.url = `${base}/${size.filename}`
+                        }
+                    }
+                }
+                return doc
+            },
+        ],
+    },
+    admin: {
+        group: 'Content Management',
+        defaultColumns: ['filename', 'alt', 'usageCount', 'updatedAt'],
+        pagination: {
+            defaultLimit: 100,
+        },
+        components: {
+            views: {
+                list: {
+                    actions: ['@cms/components/ScanMediaUsageButton'],
+                },
+            },
+        },
+    },
+    access: {
+        read: () => true,
+        create: isAdminOrEditor,
+        update: isAdminOrEditor,
+        delete: isAdminOrEditor,
+    },
+    fields: [
+        {
+            name: 'alt',
+            type: 'text',
+            admin: {
+                description: 'Alt text for accessibility',
+            },
+        },
+        {
+            name: 'usageCount',
+            type: 'number',
+            label: 'Usage Count',
+            admin: {
+                position: 'sidebar',
+                readOnly: true,
+                description: 'Number of times this file is referenced. Click "Scan Usage" to update.',
+            },
+        },
+        {
+            name: 'usedIn',
+            type: 'array',
+            label: 'Used In',
+            admin: {
+                readOnly: true,
+                description: 'Documents referencing this file. Click "Scan Usage" to update.',
+                components: {
+                    RowLabel: {
+                        path: '@cms/components/ArrayRowLabel',
+                        clientProps: {
+                            fieldName: 'docTitle',
+                            fallback: 'Reference',
+                        },
+                    },
+                },
+            },
+            fields: [
+                { name: 'collection', type: 'text', label: 'Collection', admin: { readOnly: true } },
+                { name: 'docTitle', type: 'text', label: 'Document', admin: { readOnly: true } },
+                { name: 'count', type: 'number', label: 'Times Used', admin: { readOnly: true } },
+                { name: 'path', type: 'text', label: 'Path', admin: { readOnly: true } },
+                { name: 'docId', type: 'number', label: 'Document ID', admin: { readOnly: true } },
+            ],
+        },
+    ],
+    upload: {
+        mimeTypes: [
+            // Images
+            'image/*',
+            // Videos
+            'video/mp4',
+            'video/webm',
+            'video/ogg',
+            'video/avi',
+            'video/mov',
+            'video/quicktime',
+            // Audio
+            'audio/mpeg',
+            'audio/mp3',
+            'audio/wav',
+            'audio/ogg',
+            'audio/aac',
+            // Documents
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/rtf',
+            'text/plain',
+            'text/markdown',
+            // Spreadsheets
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'text/csv',
+            // Presentations
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            // Archives
+            'application/zip',
+            'application/x-rar-compressed',
+            'application/x-7z-compressed',
+            'application/gzip',
+            // Other common formats
+            'application/json',
+            'application/xml',
+            'text/xml',
+            'application/javascript',
+            'text/css',
+            'text/html',
+        ],
+        imageSizes: [
+            ...BASE_IMAGE_SIZES,
+            ...projectMeta.additionalImageSizes,
+        ],
+        adminThumbnail: 'thumbnail',
+    },
+}
