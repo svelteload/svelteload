@@ -13,11 +13,6 @@ type UsageEntry = {
   count: number
 }
 
-/**
- * Recursively count all occurrences of populated media documents.
- * A populated media doc is identified by having both `id` (number) and `filename` (string).
- * Uses a Map so the same media item used N times on one page counts N times.
- */
 function countMediaOccurrences(value: unknown, counts: Map<number, number>): void {
   if (!value || typeof value !== 'object') return
   if (Array.isArray(value)) {
@@ -27,15 +22,11 @@ function countMediaOccurrences(value: unknown, counts: Map<number, number>): voi
   const obj = value as Record<string, unknown>
   if (typeof obj.id === 'number' && typeof obj.filename === 'string') {
     counts.set(obj.id, (counts.get(obj.id) ?? 0) + 1)
-    return // no need to recurse further into the media doc itself
+    return
   }
   for (const v of Object.values(obj)) countMediaOccurrences(v, counts)
 }
 
-/**
- * Extract a readable title from a document, handling localized fields
- * (with locale:'all', localized text fields come back as { en: "...", sv: "..." }).
- */
 function extractTitle(doc: Record<string, unknown>, titleField: string): string {
   const raw = doc[titleField] ?? doc.name ?? doc.id
   if (raw !== null && typeof raw === 'object' && !Array.isArray(raw)) {
@@ -90,7 +81,6 @@ export async function POST() {
     }
     const usageMap = new Map<number, UsageEntry[]>()
 
-    // Scan all collections from the shared config (skip media itself)
     const collectionsToScan = (payloadConfigBase.collections ?? []).filter(
       (c) => c.slug !== 'media',
     )
@@ -109,7 +99,6 @@ export async function POST() {
       )
     }
 
-    // Scan all globals from the shared config
     for (const globalConfig of payloadConfigBase.globals ?? []) {
       try {
         const globalDoc = await payload.findGlobal({ slug: globalConfig.slug as 'navbar', depth: 3 })
@@ -125,12 +114,9 @@ export async function POST() {
             count,
           })
         }
-      } catch {
-        // Skip globals that haven't been saved yet
-      }
+      } catch {}
     }
 
-    // Update every media document with its usage data
     let page = 1
     let updated = 0
     while (true) {

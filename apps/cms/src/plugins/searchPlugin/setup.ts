@@ -2,11 +2,6 @@ import type { Payload } from 'payload'
 
 let schemaReady: Promise<void> | null = null
 
-/**
- * Creates the search_index table + indexes if they don't exist. Idempotent.
- * Called lazily on first write so a fresh project gets the schema as soon
- * as any content is saved — no migration file needed.
- */
 export function ensureSearchSchema(payload: Payload): Promise<void> {
   if (schemaReady) return schemaReady
 

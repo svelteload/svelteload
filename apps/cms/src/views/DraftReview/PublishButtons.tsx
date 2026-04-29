@@ -98,9 +98,7 @@ export function DraftList({ initialDrafts }: DraftListProps) {
     setErrorMessages({})
     setPublishAllProgress({ done: 0, total: draftsToPublish.length })
 
-    // Publish sequentially — one server action at a time.
-    // Parallel publishing exhausts the DB connection pool and deadlocks.
-    // Each item disappears from the list immediately after it succeeds.
+    // Sequential: parallel publishing exhausts the DB connection pool and deadlocks.
     for (let i = 0; i < draftsToPublish.length; i++) {
       const draft = draftsToPublish[i]
       const key = getDraftKey(draft)

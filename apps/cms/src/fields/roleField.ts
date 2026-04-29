@@ -1,12 +1,6 @@
 import type { Field } from 'payload'
 import { isAdminFieldAccess } from '@cms/access/roles'
 
-/**
- * Reusable role field for Users collections across every svelteload project.
- *
- * Spread this into the Users collection's `fields` array. Only admins can
- * change another user's role. New users default to `editor`.
- */
 export const roleField: Field = {
   name: 'role',
   type: 'select',

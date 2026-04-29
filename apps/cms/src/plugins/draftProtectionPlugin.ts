@@ -2,18 +2,6 @@ import type { Config, Plugin } from 'payload'
 import { APIError } from 'payload'
 import { getUserRole } from '@cms/access/roles'
 
-/**
- * Payload plugin that blocks publishing for users with the `contributor` role
- * across every collection and global that has draft mode enabled.
- *
- * Two layers of enforcement:
- *  1. UI — replaces the default PublishButton with one that returns null for
- *     contributors, so they don't see a button they can't use.
- *  2. Server — beforeOperation hook throws Forbidden if a contributor tries
- *     to set _status: 'published' anyway (covers API calls and any UI gap).
- *
- * Admins and editors are unaffected and can publish freely.
- */
 export const draftProtectionPlugin = (): Plugin => (incomingConfig: Config): Config => {
     const hasDrafts = (versions: any): boolean => {
         if (!versions) return false

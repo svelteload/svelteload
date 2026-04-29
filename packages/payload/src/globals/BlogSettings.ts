@@ -1,7 +1,6 @@
 import type { CollectionConfig, GlobalConfig } from 'payload'
 import { isAdminOrEditor } from '@cms/access/roles'
 
-// `siblings` is checked for a Tags collection; its presence toggles tagsHeading.
 export function buildBlogSettings(siblings: CollectionConfig[] = []): GlobalConfig {
     const hasTags = siblings.some((c) => c?.slug === 'tags')
 

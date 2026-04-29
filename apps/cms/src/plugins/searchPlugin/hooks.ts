@@ -6,10 +6,6 @@ import type {
 import { extractText, resolveUrl } from './extract'
 import { ensureSearchSchema } from './setup'
 
-/**
- * Collections that should never be indexed — authentication, system state,
- * uploads, and app-internal data.
- */
 export const SYSTEM_COLLECTIONS = new Set([
   'users',
   'media',
@@ -155,19 +151,6 @@ export const createAfterDeleteHook =
     return doc
   }
 
-/**
- * Re-saves every doc in every non-system collection so beforeChange hooks
- * re-run against the current schema. Useful after a project adopts new
- * beforeChange-derived fields (e.g. `localizedPaths` for search URL
- * resolution) and existing docs predate the hook.
- *
- * The update payload carries back the doc's existing fields — including
- * `_status` — so published rows stay published and drafts stay drafts.
- * Relationships stay as IDs because we fetch with depth:0.
- *
- * Triggers afterChange hooks too, so the search index is repopulated as a
- * side effect. Returns count per collection.
- */
 export async function backfillAll(payload: Payload): Promise<Record<string, number>> {
   await ensureSearchSchema(payload)
 
@@ -220,10 +203,6 @@ export async function backfillAll(payload: Payload): Promise<Record<string, numb
   return counts
 }
 
-/**
- * Full rebuild: wipes and re-indexes every non-system collection.
- * Returns count per collection.
- */
 export async function reindexAll(
   payload: Payload,
   options: { extraSkipKeys?: string[] } = {},

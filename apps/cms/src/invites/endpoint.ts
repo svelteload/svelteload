@@ -2,14 +2,6 @@ import type { Endpoint } from 'payload'
 import crypto from 'node:crypto'
 import { getUserRole, type UserRole } from '@cms/access/roles'
 
-/**
- * POST /api/invite-user
- *
- * Admin-only. Creates a user with a random password + `isInvite: true`,
- * then calls payload.forgotPassword() so the user receives a branded
- * invitation email with a reset link. They set their own password via
- * Payload's standard /admin/reset/:token flow.
- */
 export const inviteUserEndpoint: Endpoint = {
   path: '/invite-user',
   method: 'post',

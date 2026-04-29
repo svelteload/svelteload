@@ -4,11 +4,6 @@ import React, { useState } from 'react'
 import { useAuth, useDocumentInfo } from '@payloadcms/ui'
 import { getUserRole } from '@cms/access/roles'
 
-/**
- * UI-field component rendered on the Users edit view for any user whose
- * `isInvite` flag is still true. Calls POST /api/resend-invite, which
- * triggers a fresh invitation email with a new reset token.
- */
 export default function ResendInviteButton() {
   const { user } = useAuth()
   const { id } = useDocumentInfo()

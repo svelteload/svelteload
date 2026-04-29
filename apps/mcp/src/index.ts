@@ -14,7 +14,6 @@ import { registerUpdateGlobal } from './tools/update-global.js'
 import { registerUpdateSection } from './tools/update-section.js'
 import { registerBrowseMedia } from './tools/browse-media.js'
 
-// Load .env from the MCP app directory
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const envPath = resolve(__dirname, '..', '.env')
 try {
@@ -28,15 +27,8 @@ try {
     const value = trimmed.slice(eqIndex + 1).trim()
     if (!process.env[key]) process.env[key] = value
   }
-} catch {
-  // .env file not found — fall back to process.env
-}
+} catch {}
 
-// The MCP only targets a local payload-admin dev server. Contact-sheet
-// generation (browse_media) is Sharp-heavy and would OOM/time-out on Vercel,
-// and generated sheets are returned as local file paths anyway — so everything
-// runs against localhost. Default to :3000; per-project envs override via
-// PAYLOAD_URL when multiple svelteload projects run side-by-side.
 const PAYLOAD_URL = process.env.PAYLOAD_URL || 'http://localhost:3000'
 const PAYLOAD_API_KEY = process.env.PAYLOAD_API_KEY || ''
 
@@ -51,10 +43,8 @@ const server = new McpServer({
   version: '1.0.0',
 })
 
-// Schema tool works without Payload running (reads config files)
 registerGetSchema(server)
 
-// CRUD tools require Payload running + API key
 registerFind(server, client)
 registerGetById(server, client)
 registerCreate(server, client)

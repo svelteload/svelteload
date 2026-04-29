@@ -1,16 +1,3 @@
-/**
- * GET /api/media-sheets
- *
- * Generates all contact sheets in parallel, saves them as WebP to a temp
- * directory, and returns a JSON manifest with the file paths.
- * Claude then reads each path directly — no downloading via HTTP.
- *
- * Query params:
- *   ?search=keyword     filter by filename or alt text
- *   ?sort=id|-createdAt  (default: id)
- *   ?chunk=N            images per sheet (default: 48)
- */
-
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import sharp from 'sharp'
@@ -18,13 +5,12 @@ import { writeFileSync, mkdirSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-// Layout
 const COLS = 8
 const CELL_W = 240
-const CELL_H = 160  // 3:2 — matches landscape stock photos
+const CELL_H = 160
 const LABEL_H = 20
 const TOTAL_CELL_H = CELL_H + LABEL_H
-const CANVAS_W = COLS * CELL_W   // 1920px
+const CANVAS_W = COLS * CELL_W
 const HEADER_H = 28
 
 const BG = { r: 14, g: 14, b: 14 }
@@ -46,7 +32,6 @@ export async function GET(req: Request) {
   try {
     const payload = await getPayload({ config })
 
-    // Fetch all media metadata in one query
     const result = await payload.find({
       collection: 'media',
       depth: 0,
@@ -61,11 +46,9 @@ export async function GET(req: Request) {
     const chunks = chunk(docs, chunkSize)
     const totalSheets = chunks.length
 
-    // Create output directory
     const outDir = join(tmpdir(), 'nodebrush-media')
     mkdirSync(outDir, { recursive: true })
 
-    // Generate all sheets in parallel
     const sheetPaths = await Promise.all(
       chunks.map((sheetDocs, sheetIdx) =>
         renderSheet(sheetDocs, sheetIdx, totalSheets, docs.length, origin, outDir),
@@ -85,8 +68,6 @@ export async function GET(req: Request) {
   }
 }
 
-// ─── Sheet renderer ───────────────────────────────────────────────────────────
-
 async function renderSheet(
   docs: any[],
   sheetIdx: number,
@@ -101,7 +82,6 @@ async function renderSheet(
 
   const composites: sharp.OverlayOptions[] = []
 
-  // Fetch and place all images concurrently
   await Promise.all(
     docs.map(async (doc, i) => {
       const col = i % COLS
@@ -121,8 +101,7 @@ async function renderSheet(
     }),
   )
 
-  // Header
-  const startNum = sheetIdx * docs.length + 1  // approximate
+  const startNum = sheetIdx * docs.length + 1
   const headerText = `Sheet ${sheetNum}/${totalSheets} — ${docs.length} images (${totalDocs} total)`
   composites.unshift({
     input: Buffer.from(svgHeader(CANVAS_W, HEADER_H, headerText)),
@@ -142,13 +121,10 @@ async function renderSheet(
   return filePath
 }
 
-// ─── Image fetcher ─────────────────────────────────────────────────────────────
-
 async function fetchCellImage(doc: any, origin: string): Promise<Buffer> {
   const isImage = doc.mimeType?.startsWith('image/')
 
   if (isImage) {
-    // Prefer 480px 'card' size for detail; fall back to thumbnail, then original
     const thumbUrl =
       doc.sizes?.card?.url ||
       doc.sizes?.thumbnail?.url ||
@@ -163,23 +139,19 @@ async function fetchCellImage(doc: any, origin: string): Promise<Buffer> {
           const raw = Buffer.from(await res.arrayBuffer())
           return sharp(raw)
             .resize(CELL_W, CELL_H, {
-              fit: 'contain',     // never crop — show the full image
+              fit: 'contain',
               position: 'centre',
               background: BG,
             })
-            .png()    // intermediate PNG for sharp compositing
+            .png()
             .toBuffer()
         }
-      } catch {
-        // fall through to placeholder
-      }
+      } catch {}
     }
   }
 
   return makePlaceholder(doc.mimeType)
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function makePlaceholder(mimeType?: string | null): Promise<Buffer> {
   const label =

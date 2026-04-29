@@ -17,7 +17,6 @@ type ReviewStatus = 'reviewed' | 'changed' | 'new'
 function getReviewStatus(doc: ContentDocument, notes: Record<string, ReviewNote>): ReviewStatus {
   const note = notes[doc.docKey]
   if (!note) return 'new'
-  // Compare timestamps — if doc was updated after the note was saved, it's changed
   if (doc.docUpdatedAt && note.docUpdatedAt) {
     const docTime = new Date(doc.docUpdatedAt).getTime()
     const noteTime = new Date(note.docUpdatedAt).getTime()
@@ -120,7 +119,6 @@ function DocumentCard({
       ? doc.collectionLabel ?? doc.collection
       : `Global: ${doc.globalLabel ?? doc.globalSlug}`
 
-  // Editing scope: if any fields are marked for this doc, only those are editable in edit mode
   const docHasMarked = doc.fields.some((f) => markedFields.has(makeFieldKey(docKey, f.path)))
   const fieldIsEditable = (fieldPath: string) =>
     isEditing && !docHasMarked || (isEditing && markedFields.has(makeFieldKey(docKey, fieldPath)))
@@ -145,7 +143,6 @@ function DocumentCard({
         overflow: 'hidden',
       }}
     >
-      {/* Card header */}
       <div
         style={{
           display: 'flex',
@@ -327,7 +324,6 @@ function DocumentCard({
         </div>
       </div>
 
-      {/* Fields table */}
       {visibleFields.length === 0 ? (
         <div style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--theme-elevation-400)' }}>
           No text content.
@@ -393,7 +389,6 @@ function DocumentCard({
                   </td>
 
                   {field.singleValue !== undefined ? (
-                    // Non-localized JSON field — spans both locale columns, never editable
                     <td
                       colSpan={2}
                       style={{
@@ -472,7 +467,6 @@ function DocumentCard({
                           )
                         }
 
-                        // Read-only cell (dimmed when editing mode is active but field not editable)
                         const isMuted = isEditing && !canEdit
                         return (
                           <td
@@ -534,7 +528,6 @@ export function ContentReviewList({ documents, localeCodes, initialNotes }: Prop
   const [notes, setNotes] = useState<Record<string, ReviewNote>>(initialNotes)
   const [pendingKeys, setPendingKeys] = useState(new Set<string>())
   const [, startTransition] = useTransition()
-  // Edit mode state
   const [editingDocKey, setEditingDocKey] = useState<string | null>(null)
   const [currentEdits, setCurrentEdits] = useState<Record<string, string>>({})
   const [isSaving, setIsSaving] = useState(false)
@@ -611,8 +604,6 @@ export function ContentReviewList({ documents, localeCodes, initialNotes }: Prop
         ;(editsByLocale[locale] ??= []).push({ path, value, fieldType })
       }
       const { updatedAt } = await saveDocumentEdits(doc.docKey, editsByLocale)
-      // Publish bumps updatedAt — auto-mark reviewed with the new timestamp so the
-      // doc doesn't flip to "changed" immediately after the user just reviewed it.
       await markDocumentReviewed(doc.docKey, updatedAt)
       setNotes((prev) => ({
         ...prev,
@@ -665,20 +656,17 @@ export function ContentReviewList({ documents, localeCodes, initialNotes }: Prop
     if (showMode === 'all') return filtered
     if (showMode === 'missing') return filtered.filter((doc) => doc.fields.some((f) => f.isMissing))
     if (showMode === 'warnings') return filtered.filter((doc) => doc.fields.some((f) => f.isWarning && !f.isMissing))
-    // marked
     return filtered.filter((doc) => {
       const docKey = getDocKey(doc)
       return doc.fields.some((f) => markedFields.has(makeFieldKey(docKey, f.path)))
     })
   }, [filtered, markedFields, showMode])
 
-  // "New" filter hides docs that are reviewed AND haven't changed AND have no errors
   const visibleDocs = useMemo(() => {
     if (filterKey !== 'new') return displayDocs
     return displayDocs.filter((doc) => {
       const status = getReviewStatus(doc, notes)
       if (status !== 'reviewed') return true
-      // Always show if there are errors, even if reviewed
       return doc.fields.some((f) => f.isMissing)
     })
   }, [displayDocs, filterKey, notes])
@@ -767,7 +755,6 @@ export function ContentReviewList({ documents, localeCodes, initialNotes }: Prop
     <>
       <style>{STYLES}</style>
 
-      {/* Toolbar */}
       <div
         style={{
           display: 'flex',
@@ -841,7 +828,6 @@ export function ContentReviewList({ documents, localeCodes, initialNotes }: Prop
         </span>
       </div>
 
-      {/* Document list */}
       {visibleDocs.length === 0 ? (
         <p style={{ color: 'var(--theme-elevation-400)', fontSize: '14px' }}>
           {showMode === 'missing'

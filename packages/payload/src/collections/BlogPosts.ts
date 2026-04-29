@@ -61,7 +61,6 @@ function deriveSlug(title: string, plainText: string): string {
     return `post-${Date.now()}`
 }
 
-// `siblings` is checked for a Tags collection; its presence toggles the tags relationship field.
 export function buildBlogPosts(siblings: CollectionConfig[] = []): CollectionConfig {
     const hasTags = siblings.some((c) => c?.slug === 'tags')
     const tagsField = hasTags

@@ -1,13 +1,6 @@
 import type { Endpoint } from 'payload'
 import { getUserRole } from '@cms/access/roles'
 
-/**
- * POST /api/resend-invite
- *
- * Admin-only. Re-triggers payload.forgotPassword() for a user that still
- * has `isInvite: true`, so a fresh invitation email goes out with a new
- * reset token (the previous token may have expired after 7 days).
- */
 export const resendInviteEndpoint: Endpoint = {
   path: '/resend-invite',
   method: 'post',

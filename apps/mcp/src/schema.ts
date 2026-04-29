@@ -30,7 +30,6 @@ interface GlobalInfo {
 }
 
 function extractField(field: Record<string, unknown>): FieldInfo | null {
-  // Skip UI-only fields and unnamed fields
   if (field.type === 'ui') return null
   if (!field.name && field.type !== 'tabs' && field.type !== 'row' && field.type !== 'collapsible') return null
 
@@ -54,12 +53,10 @@ function extractField(field: Record<string, unknown>): FieldInfo | null {
     info.admin = { description: (field.admin as Record<string, unknown>).description as string }
   }
 
-  // Recurse into sub-fields
   if (field.fields && Array.isArray(field.fields)) {
     info.fields = extractFields(field.fields as Record<string, unknown>[])
   }
 
-  // Handle blocks
   if (field.blocks && Array.isArray(field.blocks)) {
     info.blocks = (field.blocks as Record<string, unknown>[]).map(block => ({
       slug: block.slug as string,
@@ -67,7 +64,6 @@ function extractField(field: Record<string, unknown>): FieldInfo | null {
     }))
   }
 
-  // Handle tabs (flatten tab fields into parent)
   if (field.type === 'tabs' && field.tabs) {
     const allFields: FieldInfo[] = []
     for (const tab of field.tabs as Record<string, unknown>[]) {
@@ -78,7 +74,6 @@ function extractField(field: Record<string, unknown>): FieldInfo | null {
     return { name: '_tabs', type: 'tabs', fields: allFields }
   }
 
-  // Handle row / collapsible (layout wrappers — flatten)
   if ((field.type === 'row' || field.type === 'collapsible') && field.fields) {
     return { name: `_${field.type as string}`, type: field.type as string, fields: extractFields(field.fields as Record<string, unknown>[]) }
   }
@@ -92,7 +87,6 @@ function extractFields(fields: Record<string, unknown>[]): FieldInfo[] {
     const info = extractField(field)
     if (!info) continue
 
-    // Flatten layout wrappers (tabs, row, collapsible) — lift children up
     if ((info.type === 'tabs' || info.type === 'row' || info.type === 'collapsible') && info.fields) {
       result.push(...info.fields)
     } else {
@@ -158,11 +152,9 @@ export function getSchema(): string {
 
   const lines: string[] = ['# Payload CMS Schema\n']
 
-  // Locales
   const locales = config.localization as { locales: Array<{ code: string; label: string }>; defaultLocale: string }
   lines.push(`## Locales: ${locales.locales.map(l => `${l.code} (${l.label})`).join(', ')} — default: ${locales.defaultLocale}\n`)
 
-  // Collections
   lines.push('## Collections\n')
   for (const col of collections) {
     lines.push(`### ${col.slug}${col.versions ? ' (versioned)' : ''}\n`)
@@ -172,7 +164,6 @@ export function getSchema(): string {
     lines.push('')
   }
 
-  // Globals
   lines.push('## Globals\n')
   for (const g of globals) {
     lines.push(`### ${g.slug}\n`)

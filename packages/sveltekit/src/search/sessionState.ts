@@ -14,9 +14,7 @@ export function stashHighlight(payload: HighlightPayload): void {
   if (typeof sessionStorage === 'undefined') return
   try {
     sessionStorage.setItem(HIGHLIGHT_KEY, JSON.stringify(payload))
-  } catch {
-    /* quota — ignore */
-  }
+  } catch {}
 }
 
 export function takeHighlight(): HighlightPayload | null {
@@ -40,9 +38,7 @@ export function stashHandoff(payload: HandoffPayload): void {
   if (typeof sessionStorage === 'undefined') return
   try {
     sessionStorage.setItem(HANDOFF_KEY, JSON.stringify(payload))
-  } catch {
-    /* ignore */
-  }
+  } catch {}
 }
 
 export function takeHandoff(): HandoffPayload | null {

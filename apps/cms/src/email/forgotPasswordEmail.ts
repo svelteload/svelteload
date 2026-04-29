@@ -1,14 +1,7 @@
 export interface ForgotPasswordEmailOptions {
-  /** Project display name — e.g. 'ECSA CMS'. Used in the subject and title. */
   projectName: string
-  /** Base URL of the admin app — e.g. 'https://cms.ecsa-customs.com'. */
   adminUrl: string
-  /**
-   * Expanded name shown in the footer — e.g. 'European Customs Services
-   * Alliance (ECSA)'. Falls back to projectName.
-   */
   fullProjectName?: string
-  /** Public site URL shown alongside the admin URL in the footer. */
   siteUrl?: string
 }
 
@@ -31,22 +24,6 @@ function stripScheme(url: string): string {
   return url.replace(/^https?:\/\//, '').replace(/\/$/, '')
 }
 
-/**
- * Returns auth.forgotPassword config (subject + HTML generators) that renders
- * branded emails for both password resets and invitations.
- *
- * Design: no background fills anywhere, so each client (light or dark, web
- * or mobile) paints its own canvas and our text inherits the appropriate
- * color. Structure comes from spacing, type weight, and a single divider
- * rule above the footer.
- *
- * Invitations piggy-back on Payload's forgotPassword flow: when we create a
- * user and immediately trigger forgotPassword, the resulting email is the
- * invite email. We distinguish by checking the user's `isInvite` flag, which
- * the invite endpoint sets on user creation and we clear on first reset.
- *
- * Spread the result onto the Users collection's `auth.forgotPassword` field.
- */
 export function forgotPasswordEmail(options: ForgotPasswordEmailOptions) {
   const { projectName, adminUrl, fullProjectName, siteUrl } = options
   const base = adminUrl.replace(/\/$/, '')

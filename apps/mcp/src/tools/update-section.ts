@@ -21,7 +21,6 @@ export function registerUpdateSection(server: McpServer, client: PayloadClient) 
         }
       }
 
-      // Fetch current page
       const page = await client.findByID('pages', page_id, { locale, depth: 0 })
       const sections = page.sections as Record<string, unknown>[]
 
@@ -32,7 +31,6 @@ export function registerUpdateSection(server: McpServer, client: PayloadClient) 
         }
       }
 
-      // Find target section
       let targetIndex: number
       if (section_index !== undefined) {
         targetIndex = section_index
@@ -54,12 +52,10 @@ export function registerUpdateSection(server: McpServer, client: PayloadClient) 
         }
       }
 
-      // Merge data into target section (shallow merge — arrays are replaced, not appended)
       const updatedSection = { ...sections[targetIndex], ...data }
       const updatedSections = [...sections]
       updatedSections[targetIndex] = updatedSection
 
-      // Save
       const result = await client.update('pages', page_id, { sections: updatedSections }, { locale })
 
       const savedSections = (result as Record<string, unknown>).sections as Record<string, unknown>[]

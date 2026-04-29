@@ -5,11 +5,6 @@ import { useAuth } from '@payloadcms/ui'
 import { getUserRole } from '@cms/access/roles'
 import { InviteUserDialog } from './InviteUserDialog'
 
-/**
- * List-view action button on the Users collection. Admin-only.
- * Opens InviteUserDialog, which POSTs to /api/invite-user and triggers the
- * invitation email (rendered by forgotPasswordEmail).
- */
 export default function InviteUserButton() {
   const { user } = useAuth()
   const [open, setOpen] = useState(false)

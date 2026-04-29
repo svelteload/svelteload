@@ -1,15 +1,6 @@
 import { z } from 'zod'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
-/**
- * browse_media — Generate contact sheets of all media in the CMS.
- *
- * Calls the payload-admin /api/media-sheets endpoint, which renders every
- * uploaded image into paginated WebP contact sheets saved to disk.
- * Returns the file paths so Claude can Read them directly.
- *
- * Use this whenever you need to visually browse, search, or pick images.
- */
 export function registerBrowseMedia(server: McpServer, payloadUrl: string) {
   server.tool(
     'browse_media',

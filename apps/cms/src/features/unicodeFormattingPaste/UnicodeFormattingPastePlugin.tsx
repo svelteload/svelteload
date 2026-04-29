@@ -30,12 +30,6 @@ import {
 
 const HASHTAG_ANCHOR_PATTERN = /hashtag\s*#/i
 
-/**
- * LinkedIn renders hashtag links with an accessibility span —
- * `<a><span aria-hidden="true">hashtag</span>#Tag</a>` — so "hashtag" and
- * "#Tag" land in separate text nodes. Detect that pattern at the anchor
- * level and collapse the anchor's contents to a single cleaned text node.
- */
 function cleanHashtagAnchors(root: HTMLElement): void {
     const anchors = root.querySelectorAll('a')
     for (const anchor of Array.from(anchors)) {
@@ -88,18 +82,6 @@ function unwrapInlineAroundDoubleBr(root: HTMLElement): void {
     }
 }
 
-/**
- * Splits block elements on double-<br> boundaries. Two consecutive <br> tags
- * (separated only by whitespace) signal a paragraph break in pasted content
- * from word processors and social posts — but land as inline line breaks
- * unless the enclosing block is split.
- *
- * Runs after `unwrapInlineAroundDoubleBr` so inline wrappers don't prevent
- * the break from reaching a splittable ancestor. Processes innermost blocks
- * first so parent splits see an already-normalized subtree. When the break
- * is at the body root with no block ancestor, segments are wrapped in new
- * <p>s; otherwise the block is cloned (preserving tag + attributes).
- */
 function splitParagraphsOnDoubleBr(root: HTMLElement, doc: Document): void {
     unwrapInlineAroundDoubleBr(root)
 
@@ -157,14 +139,6 @@ function splitParagraphsOnDoubleBr(root: HTMLElement, doc: Document): void {
     }
 }
 
-/**
- * Walks all text nodes beneath `root` and rewrites any that need
- * normalisation — either because they contain Unicode Mathematical
- * Alphanumeric "fake bold/italic" chars, or because they contain LinkedIn's
- * "hashtag#" prefix artifact. Formatted runs become <strong>/<em> wrapped
- * ASCII; the hashtag prefix is simply stripped. Surrounding structure
- * (links, paragraphs, etc.) is preserved.
- */
 function rewriteInDom(root: HTMLElement, doc: Document): void {
     splitParagraphsOnDoubleBr(root, doc)
     cleanHashtagAnchors(root)
@@ -222,12 +196,6 @@ function isBreakOrWhitespaceNode(node: LexicalNode | undefined): boolean {
     return !!node && ($isLineBreakNode(node) || isWhitespaceTextNode(node))
 }
 
-/**
- * Looks for a paragraph-break boundary starting at index `i` in `children`:
- * a LineBreakNode, optionally followed by whitespace TextNodes, followed by
- * another LineBreakNode. Returns the index AFTER the boundary if one is
- * found, or -1 otherwise.
- */
 function doubleLineBreakEnd(children: readonly LexicalNode[], i: number): number {
     if (!$isLineBreakNode(children[i])) return -1
     let j = i + 1
@@ -236,12 +204,6 @@ function doubleLineBreakEnd(children: readonly LexicalNode[], i: number): number
     return -1
 }
 
-/**
- * Splits a ParagraphNode (or similar block) on double-LineBreak boundaries.
- * Returns an array of new block nodes, one per segment, or just [paragraph]
- * if no split is needed. Leading/trailing linebreaks and whitespace-only
- * text nodes are stripped from each segment.
- */
 function splitBlockOnDoubleLineBreak(paragraph: ElementNode): ElementNode[] {
     const children = paragraph.getChildren()
     const groups: LexicalNode[][] = [[]]
@@ -272,17 +234,6 @@ function splitBlockOnDoubleLineBreak(paragraph: ElementNode): ElementNode[] {
     })
 }
 
-/**
- * Walks the flat node list returned by `$generateNodesFromDOM` and promotes
- * runs of inline nodes separated by double LineBreakNodes into separate
- * ParagraphNodes. Pre-existing block nodes are preserved (and also split
- * internally on double linebreaks). Leading/trailing linebreaks in each
- * group are dropped so the result has clean paragraph boundaries.
- *
- * This is the workhorse for LinkedIn-style pastes, where the source HTML is
- * a flat span + <br><br> structure that otherwise lands as one huge
- * paragraph full of linebreaks.
- */
 function groupIntoParagraphs(nodes: LexicalNode[]): LexicalNode[] {
     const result: LexicalNode[] = []
     let buffer: LexicalNode[] = []

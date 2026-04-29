@@ -1,34 +1,9 @@
-/**
- * Walks any Payload document driven by its collection field schema. Only
- * collects values from text-bearing field types (text, textarea, email,
- * richText) so select/radio/checkbox/number/relationship/upload values
- * never leak into the search index. Schema traversal handles nesting via
- * group, array, blocks, tabs, row, and collapsible.
- *
- * `extraSkipKeys` lets a project drop a specific text field by name from
- * indexing without touching the submodule.
- */
-
 import type { Field } from 'payload'
 
 const TEXT_TYPES = new Set(['text', 'textarea', 'email'])
 
-/**
- * Defense-in-depth skip list for keys that, if declared as a text field on
- * some collection, should still never end up in the search index. Schema
- * walking already drops non-text types, internal markers (`id`, `blockType`,
- * `_key`, `_status`, `version`), and date/number fields (`updatedAt`,
- * `width`, etc.) without help — those don't need to be listed here.
- *
- * What stays: text fields auto-injected by Payload's upload + auth features
- * (in case a project enables uploads on a non-media collection or auth on
- * a non-users collection), plus the derived `localizedPaths` URL map.
- */
 const GLOBAL_SKIP_KEYS = new Set([
-  // Payload auto-injects `id` as a text field on every array/blocks item
-  // (UUID-style identifier). It IS in the field schema, so schema walking
-  // would visit it without this guard — and we'd index document/block IDs
-  // as if they were content.
+  // Payload auto-injects `id` as a text field on every array/blocks item; without this guard we'd index UUIDs as content.
   'id',
   'filename',
   'mimeType',
@@ -178,25 +153,13 @@ function visit(
     } else if (field.type === 'richText') {
       pushRichText(fv, perLocale, localeCodes, localized)
     }
-    // All other types (select, radio, checkbox, number, date, point, code,
-    // json, relationship, upload, join) are intentionally skipped.
   }
 }
 
 export interface ExtractTextOptions {
-  /**
-   * Project-specific field names to skip on top of the global system list.
-   * Use this to exclude a text field from indexing without editing the
-   * submodule (e.g. an internal-only note field).
-   */
   extraSkipKeys?: string[]
 }
 
-/**
- * Returns one string per locale. Non-localized text is included in every
- * locale's output so cross-locale search works (a Swedish page with an
- * English proper noun is still findable from the Swedish row).
- */
 export function extractText(
   doc: unknown,
   localeCodes: string[],
@@ -239,15 +202,6 @@ export function extractText(
   return { perLocale: result, title }
 }
 
-/**
- * Resolves the URL for a doc in a given locale using `localizedPaths`.
- * Returns null if no path is set — caller decides whether to skip indexing.
- *
- * `prefixLocale` controls whether the returned URL is prefixed with `/${locale}`.
- * Multi-locale projects (e.g. nodebrush) route through `/en/…`, `/sv/…` and need
- * the prefix. Single-locale projects (no `payload.config.localization`) route
- * directly from root and should get the raw path.
- */
 export function resolveUrl(
   collection: string,
   doc: Record<string, unknown>,

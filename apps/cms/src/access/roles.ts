@@ -2,20 +2,6 @@ import type { Access, FieldAccess } from 'payload'
 
 export type UserRole = 'admin' | 'editor' | 'contributor'
 
-/**
- * Role helpers shared across every svelteload project.
- *
- * Roles:
- *  - `admin`       — full access (users, messages, all content)
- *  - `editor`      — content only (pages, blog, media, settings, nav) with publishing rights
- *  - `contributor` — same content scope as editor, but blocked from publishing
- *                    (drafts only — enforced by draftProtectionPlugin)
- *
- * Backward-compatibility: users whose `role` field is missing (e.g. records
- * from before this field existed) are treated as admin. New users default
- * to `editor` via the shared roleField config.
- */
-
 export function getUserRole(user: unknown): UserRole {
   if (user && typeof user === 'object' && 'role' in user) {
     const role = (user as { role?: unknown }).role

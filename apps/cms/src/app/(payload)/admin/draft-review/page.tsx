@@ -26,7 +26,6 @@ export default async function DraftReviewPage() {
         padding: '0',
       }}
     >
-      {/* Page header */}
       <div
         style={{
           borderBottom: '1px solid var(--theme-elevation-150, #2a2a2a)',
@@ -76,7 +75,6 @@ export default async function DraftReviewPage() {
         </div>
       </div>
 
-      {/* Content */}
       <div
         style={{
           maxWidth: '900px',

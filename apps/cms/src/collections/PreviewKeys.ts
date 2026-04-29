@@ -1,16 +1,6 @@
 import type { CollectionConfig } from 'payload'
 import { isAdmin } from '@cms/access/roles'
 
-/**
- * Per-user, shareable preview tokens used to gate non-production frontends
- * (e.g. preview.<client>.com) behind Payload admin authorship.
- *
- * Tokens are minted by livePreview.url when an editor opens the preview pane.
- * Each user has at most one active token; the mint helper reuses the current
- * one until it's within the refresh window, then rotates it. Expired keys are
- * lazy-cleaned on mint after a grace period so URLs shared just before
- * expiry still work briefly.
- */
 export const PreviewKeys: CollectionConfig = {
   slug: 'preview-keys',
   admin: {

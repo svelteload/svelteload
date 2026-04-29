@@ -16,15 +16,15 @@ const TextareaWithCounter: React.FC<TextareaFieldClientProps> = (props) => {
     setValue,
     showError,
     value,
-  } = useField<string>({ path: props.path }) // ← Add path here
+  } = useField<string>({ path: props.path })
 
   const currentLength = value?.length || 0
   const remaining = maxLength - currentLength
 
   const getColor = () => {
-    if (remaining < 0) return '#914a54' // red
-    if (remaining < 20) return '#9f7e51' // orange
-    return '#5c8f67' // green
+    if (remaining < 0) return '#914a54'
+    if (remaining < 20) return '#9f7e51'
+    return '#5c8f67'
   }
 
   return (
@@ -59,5 +59,4 @@ const TextareaWithCounter: React.FC<TextareaFieldClientProps> = (props) => {
   )
 }
 
-// Make sure you have a default export
 export default TextareaWithCounter

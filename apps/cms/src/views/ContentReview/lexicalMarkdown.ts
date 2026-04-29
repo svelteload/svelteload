@@ -1,18 +1,12 @@
 /**
- * Bidirectional Lexical JSON ↔ Markdown converter for the Content Review edit mode.
- *
  * Lexical node facts (Payload v3 / lexical@0.41.0):
  *  - Link URL lives at node.fields.url (NOT node.url)
  *  - Both "link" and "autolink" node types exist
  *  - Text format bitmask: bold=1, italic=2, strikethrough=4, underline=8, code=16
- *  - No CodeHighlight feature enabled — only inline code via text format bitmask
+ *  - No CodeHighlight feature enabled, only inline code via text format bitmask
  *  - paragraph has extra textFormat/textStyle fields (Payload additions)
  *  - horizontalrule has only type+version (no children)
  */
-
-// ---------------------------------------------------------------------------
-// Shared helpers
-// ---------------------------------------------------------------------------
 
 function isLexical(val: unknown): val is { root: Record<string, unknown> } {
   return typeof val === 'object' && val !== null && !Array.isArray(val) && 'root' in (val as object)
@@ -23,10 +17,6 @@ type LexNode = Record<string, unknown>
 function children(node: LexNode): LexNode[] {
   return (node.children as LexNode[] | undefined) ?? []
 }
-
-// ---------------------------------------------------------------------------
-// Lexical → Markdown
-// ---------------------------------------------------------------------------
 
 function inlineToMd(node: LexNode): string {
   const type = node.type as string
@@ -42,7 +32,6 @@ function inlineToMd(node: LexNode): string {
     const italic    = (fmt & 2) !== 0
     const strike    = (fmt & 4) !== 0
     const code      = (fmt & 16) !== 0
-    // Escape backticks inside code spans
     if (code)   return `\`${text.replace(/`/g, '\\`')}\``
     if (bold && italic) return `___${text}___`
     if (bold)   return `__${text}__`
@@ -59,7 +48,6 @@ function inlineToMd(node: LexNode): string {
     return `[${inner}](${url})`
   }
 
-  // Fallback: recurse into children
   return children(node).map(inlineToMd).join('')
 }
 
@@ -102,11 +90,9 @@ function blockToMd(node: LexNode): string {
   }
 
   if (type === 'listitem') {
-    // Shouldn't be reached directly (handled by 'list'), but just in case
     return children(node).map(inlineToMd).join('')
   }
 
-  // Fallback: treat as paragraph
   const inner = children(node).map(inlineToMd).join('')
   return inner
 }
@@ -117,10 +103,6 @@ export function lexicalToMarkdown(json: unknown): string {
   }
   return blockToMd(json.root).trim()
 }
-
-// ---------------------------------------------------------------------------
-// Markdown → Lexical
-// ---------------------------------------------------------------------------
 
 function makeText(text: string, format: number = 0): LexNode {
   return { type: 'text', version: 1, text, format, detail: 0, mode: 'normal', style: '' }
@@ -165,16 +147,11 @@ function makeList(listType: 'bullet' | 'number', items: LexNode[]): LexNode {
   }
 }
 
-/**
- * Parse inline markdown within a single line of text.
- * Processes in order: links, auto-links, inline-code, bold+italic, bold, italic, strikethrough, plain.
- */
 function parseInline(text: string): LexNode[] {
   const nodes: LexNode[] = []
   let i = 0
 
   while (i < text.length) {
-    // [text](url) links
     if (text[i] === '[') {
       const closeBracket = text.indexOf('](', i + 1)
       if (closeBracket !== -1) {
@@ -189,7 +166,6 @@ function parseInline(text: string): LexNode[] {
       }
     }
 
-    // <url> / <email> auto-links
     if (text[i] === '<') {
       const close = text.indexOf('>', i + 1)
       if (close !== -1) {
@@ -209,7 +185,6 @@ function parseInline(text: string): LexNode[] {
       }
     }
 
-    // Inline code: `code`
     if (text[i] === '`') {
       const end = text.indexOf('`', i + 1)
       if (end !== -1) {
@@ -219,7 +194,6 @@ function parseInline(text: string): LexNode[] {
       }
     }
 
-    // ___bold+italic___
     if (text.startsWith('___', i)) {
       const end = text.indexOf('___', i + 3)
       if (end !== -1) {
@@ -229,7 +203,6 @@ function parseInline(text: string): LexNode[] {
       }
     }
 
-    // __bold__
     if (text.startsWith('__', i)) {
       const end = text.indexOf('__', i + 2)
       if (end !== -1) {
@@ -239,7 +212,6 @@ function parseInline(text: string): LexNode[] {
       }
     }
 
-    // _italic_
     if (text[i] === '_') {
       const end = text.indexOf('_', i + 1)
       if (end !== -1) {
@@ -249,7 +221,6 @@ function parseInline(text: string): LexNode[] {
       }
     }
 
-    // ~~strikethrough~~
     if (text.startsWith('~~', i)) {
       const end = text.indexOf('~~', i + 2)
       if (end !== -1) {
@@ -259,7 +230,6 @@ function parseInline(text: string): LexNode[] {
       }
     }
 
-    // Plain text — collect until next special character
     let j = i + 1
     while (j < text.length && !'[<`_~'.includes(text[j])) j++
     nodes.push(makeText(text.slice(i, j)))
@@ -269,9 +239,6 @@ function parseInline(text: string): LexNode[] {
   return nodes
 }
 
-/**
- * Merge adjacent plain-text nodes (for cleaner output).
- */
 function mergeTextNodes(nodes: LexNode[]): LexNode[] {
   const out: LexNode[] = []
   for (const n of nodes) {
@@ -291,11 +258,9 @@ function mergeTextNodes(nodes: LexNode[]): LexNode[] {
 export function markdownToLexical(text: string): object {
   const rootChildren: LexNode[] = []
 
-  // Split into blocks by double newline
   const blocks = text.split(/\n\n+/).map((b) => b.trim()).filter(Boolean)
 
   for (const block of blocks) {
-    // Heading: # text
     const headingMatch = block.match(/^(#{1,6})\s+(.+)$/)
     if (headingMatch) {
       const tag = `h${headingMatch[1].length}`
@@ -303,7 +268,6 @@ export function markdownToLexical(text: string): object {
       continue
     }
 
-    // Blockquote: > text
     if (block.startsWith('> ')) {
       const inner = block.replace(/^>\s*/gm, '')
       rootChildren.push({
@@ -317,13 +281,11 @@ export function markdownToLexical(text: string): object {
       continue
     }
 
-    // Horizontal rule
     if (block === '---') {
       rootChildren.push({ type: 'horizontalrule', version: 1 })
       continue
     }
 
-    // Bullet list: all lines start with "- "
     const lines = block.split('\n')
     if (lines.every((l) => /^-\s/.test(l))) {
       rootChildren.push(
@@ -334,7 +296,6 @@ export function markdownToLexical(text: string): object {
       continue
     }
 
-    // Ordered list: all lines start with "N. "
     if (lines.every((l) => /^\d+\.\s/.test(l))) {
       rootChildren.push(
         makeList('number', lines.map((l, idx) =>
@@ -344,7 +305,6 @@ export function markdownToLexical(text: string): object {
       continue
     }
 
-    // Paragraph (single newlines become linebreak nodes within the paragraph)
     const paragraphChildren: LexNode[] = []
     for (let k = 0; k < lines.length; k++) {
       if (k > 0) paragraphChildren.push({ type: 'linebreak', version: 1 })
@@ -353,10 +313,10 @@ export function markdownToLexical(text: string): object {
     rootChildren.push(makeParagraph(mergeTextNodes(paragraphChildren)))
   }
 
-  // Ensure at least one empty paragraph (Lexical requirement)
   if (rootChildren.length === 0) {
     rootChildren.push(makeParagraph([makeText('')]))
   }
+
 
   return {
     root: {

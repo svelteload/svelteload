@@ -4,10 +4,6 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import { markdownToLexical } from './lexicalMarkdown'
 
-// ---------------------------------------------------------------------------
-// deepSetPath — navigate to a dot/bracket path and set the leaf value
-// e.g. deepSetPath(obj, "sections[4].cta.text", "hello")
-// ---------------------------------------------------------------------------
 function parsePath(path: string): (string | number)[] {
   const segments: (string | number)[] = []
   const re = /([^.[\]]+)|\[(\d+)\]/g
@@ -31,10 +27,6 @@ function deepSetPath(obj: Record<string, unknown>, path: string, value: unknown)
   current[segments[segments.length - 1]] = value
 }
 
-/**
- * Flip the document's `_status` from 'draft' to 'published'. `_status` is a
- * non-localized system field, so a single update without a locale suffices.
- */
 async function publishDocument(docKey: string): Promise<{ updatedAt: string }> {
   const payload = await getPayload({ config })
   const isGlobal = docKey.startsWith('global:')
@@ -71,7 +63,6 @@ export async function markDocumentReviewed(
     finalTimestamp = updatedAt
   }
 
-  // Globals without versioning have no updatedAt — store review time as fallback
   const timestamp = finalTimestamp || new Date().toISOString()
 
   const existing = await payload.find({
@@ -99,28 +90,12 @@ export async function markDocumentReviewed(
   return { updatedAt: timestamp }
 }
 
-// ---------------------------------------------------------------------------
-// saveDocumentEdits
-// ---------------------------------------------------------------------------
-
 export type FieldEdit = {
   path: string
   value: string
   fieldType: 'text' | 'richText'
 }
 
-/**
- * Save inline edits from the Content Review page and publish immediately.
- * editsByLocale: locale code → array of {path, value, fieldType}
- *
- * Strategy:
- *  1. Fetch the document with the specific locale (flat values, not locale objects)
- *  2. Apply each edit by path — convert markdown → Lexical for richText fields
- *  3. Publish for that locale (no intermediate draft state)
- *
- * Returns the latest updatedAt so the caller can refresh the review note
- * timestamp without a second round-trip.
- */
 export async function saveDocumentEdits(
   docKey: string,
   editsByLocale: Record<string, FieldEdit[]>,
@@ -135,7 +110,6 @@ export async function saveDocumentEdits(
   for (const [locale, edits] of Object.entries(editsByLocale)) {
     if (edits.length === 0) continue
 
-    // Fetch current state for this locale (flat values, not locale objects)
     const current = isGlobal
       ? await (payload.findGlobal as any)({
           slug,
@@ -153,7 +127,6 @@ export async function saveDocumentEdits(
           overrideAccess: true,
         })
 
-    // Clone and strip read-only system fields
     const data = { ...(current as Record<string, unknown>) }
     delete data.id
     delete data.updatedAt

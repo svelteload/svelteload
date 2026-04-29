@@ -24,7 +24,6 @@ export default async function ContentReviewPage() {
         padding: '0',
       }}
     >
-      {/* Page header */}
       <div
         style={{
           borderBottom: '1px solid var(--theme-elevation-150, #2a2a2a)',
@@ -60,7 +59,6 @@ export default async function ContentReviewPage() {
         </div>
       </div>
 
-      {/* Content */}
       <div
         style={{
           maxWidth: '1400px',

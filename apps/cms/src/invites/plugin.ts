@@ -3,21 +3,6 @@ import { isAdminFieldAccess } from '@cms/access/roles'
 import { inviteUserEndpoint } from './endpoint'
 import { resendInviteEndpoint } from './resendEndpoint'
 
-/**
- * Plugin that enables the invite-user flow:
- *  - Registers POST /api/invite-user and POST /api/resend-invite
- *  - Adds a read-only `isInvite` boolean to the auth-user collection so
- *    admins can see at a glance who has accepted their invitation
- *  - Adds a `resendInvite` UI field that renders a "Resend invitation"
- *    button on pending users' edit view
- *  - Adds an afterLogin hook that clears `isInvite` once the user signs in
- *  - Adds `isInvite` to the auth collection's defaultColumns so the status
- *    shows up in the list view without per-project config
- *
- * The invitation email copy itself (branded HTML) is configured separately
- * by spreading forgotPasswordEmail(...) onto the Users collection's
- * `auth.forgotPassword` field.
- */
 export const invitesPlugin = (): Plugin => (incomingConfig: Config): Config => {
   const authSlug = incomingConfig.admin?.user
   if (!authSlug) return incomingConfig

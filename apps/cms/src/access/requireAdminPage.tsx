@@ -4,14 +4,6 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import { getUserRole } from '@cms/access/roles'
 
-/**
- * Server-side guard for custom admin pages under /admin/*.
- * Returns null if the current user is an admin, otherwise returns a forbidden page.
- *
- * Usage:
- *   const forbidden = await requireAdminPage()
- *   if (forbidden) return forbidden
- */
 export async function requireAdminPage(): Promise<React.ReactElement | null> {
   const payload = await getPayload({ config })
   const { user } = await payload.auth({ headers: await headers() })

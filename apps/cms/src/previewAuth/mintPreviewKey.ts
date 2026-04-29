@@ -5,16 +5,6 @@ const KEY_LIFETIME_MS = 14 * 24 * 60 * 60 * 1000
 const REFRESH_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 const CLEANUP_GRACE_MS = 7 * 24 * 60 * 60 * 1000
 
-/**
- * Returns the active preview token for the given user, minting a new one if
- * the current token is missing, revoked, or close to expiry. Also lazy-cleans
- * this user's expired tokens past the grace window so the collection doesn't
- * grow without bound.
- *
- * Called from livePreview.url in payload.config.ts whenever an editor opens
- * the preview pane. One token per user at a time is the default shape, but
- * nothing stops additional tokens from being created manually in the admin.
- */
 export async function mintPreviewKey(payload: Payload, userId: string | number): Promise<string> {
   const now = Date.now()
   const refreshCutoff = new Date(now + REFRESH_WINDOW_MS).toISOString()

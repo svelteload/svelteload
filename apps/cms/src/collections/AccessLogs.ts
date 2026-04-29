@@ -1,14 +1,6 @@
 import type { CollectionConfig } from 'payload'
 import { isAdmin } from '@cms/access/roles'
 
-/**
- * Append-only log of CMS authentication events (login + logout).
- *
- * Rows are written by the previewAuthPlugin's afterLogin / afterLogout hooks
- * on the auth collection. Admin-read-only; nothing else should create,
- * update or delete rows. Useful for "who's been active" reviews without
- * needing session infrastructure.
- */
 export const AccessLogs: CollectionConfig = {
   slug: 'access-logs',
   admin: {

@@ -15,11 +15,10 @@ const s3 = new S3Client({
 
 const BUCKET = process.env.S3_BUCKET || 'nodebrush-website'
 
-// Matches generated size variants like "image-480x318.webp" or "image-3660x2431.webp"
 const SIZE_VARIANT_PATTERN = /-\d+x\d+\.[a-z]+$/i
 
 export async function GET(req: NextRequest) {
-  const dry = req.nextUrl.searchParams.get('dry') !== 'false'  // dry=true by default
+  const dry = req.nextUrl.searchParams.get('dry') !== 'false'
   return run(dry)
 }
 
@@ -34,7 +33,6 @@ async function run(dry: boolean) {
   try {
     const payload = await getPayload({ config })
 
-    // 1. Collect all filenames referenced in the DB (originals + all current sizes)
     const referencedFilenames = new Set<string>()
     let page = 1
 
@@ -55,7 +53,6 @@ async function run(dry: boolean) {
 
     console.log(`DB references ${referencedFilenames.size} filenames`)
 
-    // 2. List all objects in the bucket
     const allKeys: string[] = []
     let continuationToken: string | undefined
 
@@ -75,7 +72,6 @@ async function run(dry: boolean) {
 
     console.log(`Bucket contains ${allKeys.length} objects`)
 
-    // 3. Find orphaned size variants: matches pattern but not referenced in DB
     const orphans = allKeys.filter(
       (key) => SIZE_VARIANT_PATTERN.test(key) && !referencedFilenames.has(key)
     )
@@ -92,7 +88,7 @@ async function run(dry: boolean) {
       })
     }
 
-    // 4. Delete in batches of 1000 (S3 limit)
+    // Delete in batches of 1000 (S3 limit)
     let deletedCount = 0
     for (let i = 0; i < orphans.length; i += 1000) {
       const chunk = orphans.slice(i, i + 1000)

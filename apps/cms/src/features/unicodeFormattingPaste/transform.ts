@@ -1,16 +1,3 @@
-/**
- * Maps Unicode Mathematical Alphanumeric Symbols (used by LinkedIn, Twitter
- * and other social apps for "formatted" text that survives copy-paste) back
- * to plain ASCII, along with the Lexical text-format flags that should be
- * applied. This lets a user paste LinkedIn-styled bold/italic content and
- * have it round-trip as real rich-text formatting instead of literal weird
- * glyphs.
- *
- * Ranges cover the contiguous A–Z, a–z, 0–9 blocks. Italicised small h at
- * U+210E and the "holey" positions (ℎ, ℬ, ℯ, etc.) are filled in as spot
- * overrides below.
- */
-
 const BOLD_RANGES: Array<[number, number, number]> = [
     [ 0x1D400, 0x1D419, 0x41 ], // Mathematical Bold A–Z
     [ 0x1D41A, 0x1D433, 0x61 ], // Mathematical Bold a–z
@@ -110,12 +97,7 @@ export function containsFormattedUnicode(text: string): boolean {
     return false
 }
 
-/**
- * LinkedIn's plain-text clipboard (and sometimes the href/text content of
- * its anchor tags) prefixes hashtag-link text with the literal word
- * "hashtag" — e.g. "hashtag#CustomsCompliance" instead of "#CustomsCompliance".
- * This strips that prefix so the pasted content reads as intended.
- */
+// LinkedIn's plain-text clipboard prefixes hashtag links with the literal word "hashtag".
 export function stripHashtagPrefix(text: string): string {
     return text.replace(/hashtag#/gi, '#')
 }
@@ -124,37 +106,18 @@ export function needsNormalization(text: string): boolean {
     return containsFormattedUnicode(text) || /hashtag#/i.test(text)
 }
 
-/**
- * Matches two <br> tags separated only by whitespace (spaces, tabs, newlines).
- * Pasted HTML from word processors and social posts often uses `<br><br>` as a
- * paragraph break instead of splitting into separate `<p>` elements — which
- * leaves the editor with one giant paragraph that's awkward to style and edit.
- * `[^>]*` covers attribute variants (`<br class="..."/>`, `<br data-x>`, etc.)
- * that LinkedIn and others emit.
- */
 const DOUBLE_BR_PATTERN = /<br\b[^>]*>\s*<br\b[^>]*>/i
 
 export function containsDoubleBr(html: string): boolean {
     return DOUBLE_BR_PATTERN.test(html)
 }
 
-/**
- * Matches a blank line in plain text — two or more newlines (optionally with
- * whitespace on the "blank" line). LinkedIn and similar apps deliver pasted
- * posts as `text/plain` with this shape, and we want to split those into
- * separate paragraphs rather than stuffing the literal newlines into a single
- * paragraph as text content.
- */
 const DOUBLE_NEWLINE_PATTERN = /\n[\t ]*\n/
 
 export function containsDoubleNewline(text: string): boolean {
     return DOUBLE_NEWLINE_PATTERN.test(text)
 }
 
-/**
- * Splits plain text on blank lines (two-or-more newlines, optionally with
- * spaces on the blank line) and trims each paragraph.
- */
 export function splitPlainTextParagraphs(text: string): string[] {
     return text
         .split(/\n[\t ]*\n+/)
@@ -162,11 +125,6 @@ export function splitPlainTextParagraphs(text: string): string[] {
         .filter(p => p.length > 0)
 }
 
-/**
- * Splits `text` into runs of contiguous characters sharing the same format.
- * Plain ASCII runs keep bold=false/italic=false. Also strips LinkedIn's
- * "hashtag#" prefix artifact before tokenising.
- */
 export function toFormattedRuns(text: string): FormattedRun[] {
     const normalized = stripHashtagPrefix(text)
     const runs: FormattedRun[] = []

@@ -4,14 +4,14 @@ import { lexicalToMarkdown } from './lexicalMarkdown'
 
 export interface ContentField {
   path: string
-  values: Record<string, string> // locale code -> extracted text (plain, for display)
-  isMissing: boolean  // red: translation gap or required+empty
-  isWarning: boolean  // yellow: equal content across locales, or missing meta image
-  warningNote?: string // short explanation for yellow rows
-  singleValue?: string // for non-localized JSON fields like localizedPaths — render as single cell
-  isLocalized: boolean // true only when extracted from a { en: ..., sv: ... } locale object
+  values: Record<string, string>
+  isMissing: boolean
+  isWarning: boolean
+  warningNote?: string
+  singleValue?: string
+  isLocalized: boolean
   fieldType: 'text' | 'richText'
-  editValues?: Record<string, string> // markdown representation for richText fields
+  editValues?: Record<string, string>
 }
 
 export interface ContentDocument {
@@ -24,17 +24,13 @@ export interface ContentDocument {
   documentTitle: string
   editUrl: string
   fields: ContentField[]
-  /** Stable key used for review notes: "collection:id" or "global:slug" */
   docKey: string
-  /** ISO string — the doc's updatedAt at fetch time */
   docUpdatedAt: string
-  /** 'draft' if latest version is unpublished, 'published' if it is, null if no versioning */
   docStatus: 'draft' | 'published' | null
 }
 
 export interface ReviewNote {
   key: string
-  /** ISO string — the doc's updatedAt when it was last marked reviewed */
   docUpdatedAt: string
 }
 
@@ -57,8 +53,7 @@ const SKIP_FIELDS = new Set([
   'populatedAuthors',
   'hash',
   'salt',
-  // 'url' intentionally NOT here — cta.url and nav urls are real content fields.
-  // Media collection is excluded via SYSTEM_SLUGS; depth:0 prevents media object expansion.
+  // 'url' intentionally not here: cta.url and nav urls are real content fields.
   'thumbnailURL',
   'usageCount',
   'usedIn',
@@ -77,7 +72,6 @@ const SYSTEM_SLUGS = new Set([
   'access-logs',
 ])
 
-// Fields where identical content across locales is expected and not worth warning about
 const EQUAL_CONTENT_OK = new Set([
   'slug',
   'sectionId',
@@ -139,7 +133,6 @@ function isMediaRef(val: unknown): boolean {
   return typeof obj.id === 'number' && typeof obj.filename === 'string'
 }
 
-/** Returns the leaf key of a dot-path, e.g. "sections[0].cta.url" → "url" */
 function leafKey(path: string): string {
   const dot = path.lastIndexOf('.')
   const bracket = path.lastIndexOf('[')
@@ -244,12 +237,11 @@ function collectRequiredPaths(
       continue
     }
 
-    // Evaluate admin.condition — skip field (and its children) if condition is falsy
     if (typeof f.admin?.condition === 'function') {
       try {
         if (!f.admin.condition(docRecord, siblingData)) continue
       } catch {
-        continue // if condition throws, skip rather than false-alarm
+        continue
       }
     }
 
@@ -300,7 +292,6 @@ function applyMissingDetection(
   configFields: any[],
   localeCodes: string[],
 ): void {
-  // Flag translation gaps
   for (const field of fields) {
     const withValue = localeCodes.filter((c) => !!field.values[c])
     const without = localeCodes.filter((c) => !field.values[c])
@@ -309,7 +300,6 @@ function applyMissingDetection(
     }
   }
 
-  // Inject missing required fields
   const requiredDefs: Array<{ path: string; localized: boolean; fieldType: string }> = []
   collectRequiredPaths(configFields, '', requiredDefs, docRecord, docRecord)
   const extractedByPath = new Map(fields.map((f) => [f.path, f]))
@@ -354,10 +344,6 @@ function applyMissingDetection(
   }
 }
 
-/**
- * Equal-content warning: localized fields where all locales have identical non-empty text.
- * Skip fields where equal content is expected (slug, sectionId, dates, etc.).
- */
 function applyEqualContentWarning(fields: ContentField[], localeCodes: string[]): void {
   if (localeCodes.length < 2) return
   for (const field of fields) {
@@ -370,14 +356,10 @@ function applyEqualContentWarning(fields: ContentField[], localeCodes: string[])
     const allEqual = vals.every((v) => v === vals[0])
     if (allFilled && allEqual) {
       field.isWarning = true
-      // No warningNote — the yellow row colour is sufficient signal
     }
   }
 }
 
-/**
- * Soft warning: meta image is missing. Not required but worth noting for most pages.
- */
 function applyMetaImageWarning(
   docRecord: Record<string, unknown>,
   localeCodes: string[],
@@ -399,9 +381,6 @@ function applyMetaImageWarning(
   }
 }
 
-/**
- * localizedPaths: render as a single JSON cell rather than locale columns.
- */
 function checkLocalizedPaths(
   docRecord: Record<string, unknown>,
   localeCodes: string[],
@@ -437,14 +416,13 @@ function checkLocalizedPaths(
 export async function fetchAllContent(payload: Payload): Promise<{
   documents: ContentDocument[]
   localeCodes: string[]
-  notes: Record<string, ReviewNote> // keyed by docKey
+  notes: Record<string, ReviewNote>
 }> {
   const localeConfig = payload.config.localization !== false ? payload.config.localization : undefined
   const localeCodes: string[] = localeConfig?.locales.map((l) => l.code) ?? ['en']
 
   const documents: ContentDocument[] = []
 
-  // Collections
   const collections = payload.config.collections.filter((c) => !SYSTEM_SLUGS.has(c.slug))
 
   for (const collectionConfig of collections) {
@@ -503,7 +481,6 @@ export async function fetchAllContent(payload: Payload): Promise<{
     }
   }
 
-  // Globals
   for (const globalConfig of payload.config.globals) {
     try {
       const globalLabel =
@@ -543,12 +520,9 @@ export async function fetchAllContent(payload: Payload): Promise<{
         docUpdatedAt: String(docRecord.updatedAt ?? ''),
         docStatus,
       })
-    } catch {
-      // Skip globals that haven't been saved yet
-    }
+    } catch {}
   }
 
-  // Fetch all review notes in one query
   const notes: Record<string, ReviewNote> = {}
   try {
     let notePage = 1
@@ -573,9 +547,7 @@ export async function fetchAllContent(payload: Payload): Promise<{
       if (!batch.hasNextPage) break
       notePage++
     }
-  } catch {
-    // Collection may not exist yet (before first migration) — safe to skip
-  }
+  } catch {}
 
   return { documents, localeCodes, notes }
 }
