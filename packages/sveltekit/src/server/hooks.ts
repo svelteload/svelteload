@@ -34,13 +34,11 @@ function escapeHtmlAttr(value: string): string {
 function renderGatekeeperHtml(adminUrl: string | undefined, deepLinkUrl: string | null): string {
     const target = deepLinkUrl ?? adminUrl
     const cmsButton = target
-        ? `<a class="cta" href="${escapeHtmlAttr(target)}">Open CMS</a>`
+        ? `<a class="cta-button" href="${escapeHtmlAttr(target)}">Open CMS</a>`
         : ''
-    const bg = 'var(--gatekeeper-bg, #f4eef8)'
-    const fg = 'var(--gatekeeper-fg, #3a1768)'
-    const ctaBg = 'var(--gatekeeper-cta-bg, #3a1768)'
-    const ctaFg = 'var(--gatekeeper-cta-fg, #ffffff)'
-    const ctaBgHover = 'var(--gatekeeper-cta-bg-hover, #693e90)'
+    const gatekeeper = (projectMeta as { gatekeeper?: { bg?: string; fg?: string } }).gatekeeper ?? {}
+    const bg = gatekeeper.bg ?? '#ffffff'
+    const fg = gatekeeper.fg ?? '#000000'
     return `<!doctype html>
 <html lang="en">
 <head>
@@ -54,9 +52,8 @@ function renderGatekeeperHtml(adminUrl: string | undefined, deepLinkUrl: string 
   main { max-width: 520px; text-align: center; }
   h1 { font-size: 1.5rem; margin: 0 0 1rem; }
   p { line-height: 1.5; margin: 0 0 0.75rem; }
-  .cta { display: inline-block; margin: 1.5rem 0; padding: 12px 28px; background: ${ctaBg}; color: ${ctaFg}; text-decoration: none; border-radius: 6px; font-size: 0.95rem; font-weight: 500; transition: background 0.2s; }
-  .cta:hover { background: ${ctaBgHover}; }
-  code { background: rgba(0, 0, 0, 0.08); padding: 0.1em 0.4em; border-radius: 4px; font-size: 0.95em; }
+  .cta-button { display: inline-block; margin: 1.5rem 0; padding: 14px 32px; background: ${fg}; color: ${bg}; box-shadow: inset 0 0 0 1px ${fg}; text-decoration: none; border: none; border-radius: 4px; font-size: 16px; font-family: inherit; cursor: pointer; transition: all 0.3s ease; }
+  .cta-button:hover { background: transparent; color: ${fg}; }
 </style>
 </head>
 <body>
