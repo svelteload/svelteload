@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { useConfig } from '@payloadcms/ui'
 
 type HideTarget = { kind: 'collections' | 'globals'; slug: string; requires: string }
@@ -20,6 +21,7 @@ const collectHideTargets = (config: any): HideTarget[] => {
 
 export default function RequiresPageTypeNavFilter() {
     const { config } = useConfig() as any
+    const pathname = usePathname()
     const targets = useMemo(() => collectHideTargets(config), [config])
     const [presentTypes, setPresentTypes] = useState<Set<string> | null>(null)
 
@@ -40,7 +42,7 @@ export default function RequiresPageTypeNavFilter() {
                 if (!cancelled) setPresentTypes(new Set())
             })
         return () => { cancelled = true }
-    }, [targets])
+    }, [targets, pathname])
 
     const hiddenPaths = useMemo(() => {
         if (targets.length === 0) return []
