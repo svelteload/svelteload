@@ -107,6 +107,7 @@ function _buildBlogPostsBase(): CollectionConfig {
         defaultColumns: [ 'title', 'slug', 'publicationDate', 'updatedAt' ],
         group: 'Content Management',
         useAsTitle: 'title',
+        custom: { requiresPageType: 'blog' },
     },
     versions: {
         drafts: true,
