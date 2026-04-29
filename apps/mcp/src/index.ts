@@ -32,12 +32,12 @@ try {
   // .env file not found — fall back to process.env
 }
 
-// The MCP only targets the local payload-admin dev server. Contact-sheet
+// The MCP only targets a local payload-admin dev server. Contact-sheet
 // generation (browse_media) is Sharp-heavy and would OOM/time-out on Vercel,
 // and generated sheets are returned as local file paths anyway — so everything
-// runs against http://localhost:3000. Start the admin with `pnpm --filter
-// payload-admin dev` before using any tool other than `get_schema`.
-const PAYLOAD_URL = 'http://localhost:3000'
+// runs against localhost. Default to :3000; per-project envs override via
+// PAYLOAD_URL when multiple svelteload projects run side-by-side.
+const PAYLOAD_URL = process.env.PAYLOAD_URL || 'http://localhost:3000'
 const PAYLOAD_API_KEY = process.env.PAYLOAD_API_KEY || ''
 
 if (!PAYLOAD_API_KEY) {
