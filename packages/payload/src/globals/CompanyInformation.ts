@@ -32,10 +32,9 @@ export const CompanyInformation: GlobalConfig = {
                                 {
                                     name: 'legalName',
                                     type: 'text',
-                                    required: true,
                                     admin: {
                                         width: '50%',
-                                        description: 'Registered company name. Used as Schema.org legalName.',
+                                        description: 'Registered company name (e.g. with Inc, AB, Ltd suffix). Used as Schema.org legalName. Leave blank if there is no registered legal entity.',
                                     },
                                 },
                             ],

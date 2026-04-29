@@ -1,22 +1,12 @@
 import { APIError, type CollectionBeforeChangeHook } from 'payload'
 import { generateSlugFromName } from './generateSlugFromName'
+import { getLocalization, resolveCurrentLocale } from './resolveCurrentLocale'
 
 type Config = {
     /** Default 'path'. Source-of-truth field on the Pages collection (must be `localized: true` in localized projects). */
     pathFieldName?: string
     /** Default 'name'. Field used to auto-derive the path when empty or ending with `/`. Set null to disable. */
     nameFieldName?: string | null
-}
-
-type Localization = { locales: string[]; defaultLocale: string }
-
-const getLocalization = (req: any): Localization | null => {
-    const loc = (req.payload.config as { localization?: any }).localization
-    if (!loc) return null
-    const rawLocales = loc.locales as Array<string | { code: string }> | undefined
-    const locales = rawLocales?.map((l) => (typeof l === 'string' ? l : l.code)).filter(Boolean) as string[] | undefined
-    if (!locales || locales.length === 0) return null
-    return { locales, defaultLocale: loc.defaultLocale ?? locales[0] }
 }
 
 export const buildPagesPathHook = (cfg: Config = {}): CollectionBeforeChangeHook => async ({ data, req, originalDoc, collection }) => {
@@ -28,7 +18,7 @@ export const buildPagesPathHook = (cfg: Config = {}): CollectionBeforeChangeHook
     const nameFieldName = cfg.nameFieldName === undefined ? 'name' : cfg.nameFieldName
 
     const localization = getLocalization(req)
-    const currentLocale = (req.locale && req.locale !== 'all') ? req.locale : (localization?.defaultLocale ?? 'en')
+    const currentLocale = resolveCurrentLocale(req, localization)
 
     let candidate = ((data[pathFieldName] ?? '') as string).trim()
 

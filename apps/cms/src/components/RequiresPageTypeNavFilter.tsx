@@ -1,10 +1,11 @@
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { usePathname } from 'next/navigation'
 import { useConfig } from '@payloadcms/ui'
 
 type HideTarget = { kind: 'collections' | 'globals'; slug: string; requires: string }
+
+const STORAGE_KEY = 'svelteload:present-page-types'
 
 const collectHideTargets = (config: any): HideTarget[] => {
     const targets: HideTarget[] = []
@@ -19,14 +20,34 @@ const collectHideTargets = (config: any): HideTarget[] => {
     return targets
 }
 
+const readCached = (): Set<string> | null => {
+    if (typeof window === 'undefined') return null
+    try {
+        const raw = sessionStorage.getItem(STORAGE_KEY)
+        if (!raw) return null
+        const parsed = JSON.parse(raw)
+        if (!Array.isArray(parsed)) return null
+        return new Set(parsed.filter((v): v is string => typeof v === 'string'))
+    } catch {
+        return null
+    }
+}
+
+const writeCached = (types: Set<string>): void => {
+    if (typeof window === 'undefined') return
+    try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify([...types]))
+    } catch {}
+}
+
 export default function RequiresPageTypeNavFilter() {
     const { config } = useConfig() as any
-    const pathname = usePathname()
     const targets = useMemo(() => collectHideTargets(config), [config])
-    const [presentTypes, setPresentTypes] = useState<Set<string> | null>(null)
+    const [presentTypes, setPresentTypes] = useState<Set<string> | null>(() => readCached())
 
     useEffect(() => {
         if (targets.length === 0) return
+        if (presentTypes !== null) return
         let cancelled = false
         fetch('/api/pages?where[pageType][exists]=true&depth=0&limit=100', { credentials: 'include' })
             .then((r) => (r.ok ? r.json() : { docs: [] }))
@@ -36,13 +57,14 @@ export default function RequiresPageTypeNavFilter() {
                 for (const d of data?.docs ?? []) {
                     if (typeof d?.pageType === 'string' && d.pageType) types.add(d.pageType)
                 }
+                writeCached(types)
                 setPresentTypes(types)
             })
             .catch(() => {
                 if (!cancelled) setPresentTypes(new Set())
             })
         return () => { cancelled = true }
-    }, [targets, pathname])
+    }, [targets, presentTypes])
 
     const hiddenPaths = useMemo(() => {
         if (targets.length === 0) return []

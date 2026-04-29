@@ -1,5 +1,6 @@
 import { APIError, type CollectionBeforeChangeHook } from 'payload'
 import { generateSlugFromName } from './generateSlugFromName'
+import { getLocalization, resolveCurrentLocale } from './resolveCurrentLocale'
 
 type Config = {
     /** Pages collection's `pageType` value that marks the landing page for this collection. */
@@ -8,17 +9,6 @@ type Config = {
     slugFieldName?: string
     /** Default 'name'. Field used to auto-derive the slug when empty. Set null to disable. */
     nameFieldName?: string | null
-}
-
-type Localization = { locales: string[]; defaultLocale: string }
-
-const getLocalization = (req: any): Localization | null => {
-    const loc = (req.payload.config as { localization?: any }).localization
-    if (!loc) return null
-    const rawLocales = loc.locales as Array<string | { code: string }> | undefined
-    const locales = rawLocales?.map((l) => (typeof l === 'string' ? l : l.code)).filter(Boolean) as string[] | undefined
-    if (!locales || locales.length === 0) return null
-    return { locales, defaultLocale: loc.defaultLocale ?? locales[0] }
 }
 
 const getLanding = async (req: any, pageType: string): Promise<any> => {
@@ -58,7 +48,7 @@ export const buildLandingBoundPathsHook = (cfg: Config): CollectionBeforeChangeH
     const nameFieldName = cfg.nameFieldName === undefined ? 'name' : cfg.nameFieldName
 
     const localization = getLocalization(req)
-    const currentLocale = (req.locale && req.locale !== 'all') ? req.locale : (localization?.defaultLocale ?? 'en')
+    const currentLocale = resolveCurrentLocale(req, localization)
 
     if (nameFieldName && !data[slugFieldName] && data[nameFieldName]) {
         data[slugFieldName] = generateSlugFromName(data[nameFieldName])
