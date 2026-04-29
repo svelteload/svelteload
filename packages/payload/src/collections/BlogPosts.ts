@@ -2,6 +2,7 @@ import type { CollectionConfig } from 'payload'
 import { isAdminOrEditor } from '@cms/access/roles'
 import { generateSlugFromName } from '../utils/generateSlugFromName'
 import { cleanLexicalContent, extractPlainTextFromLexical } from '../utils/extractPlainTextFromLexical'
+import { buildLandingBoundPathsHook } from '../utils/buildLandingBoundPathsHook'
 
 const TITLE_MAX_LENGTH = 100
 const DESCRIPTION_MAX_LENGTH = 200
@@ -223,10 +224,8 @@ function _buildBlogPostsBase(): CollectionConfig {
     ],
     hooks: {
         beforeChange: [
-            async ({ data, req, originalDoc }) => {
+            async ({ data, req }) => {
                 if (req.context?.bypassHooks) return data
-
-                const articleId = originalDoc?.id || null
 
                 if (data.content) {
                     cleanLexicalContent(data.content)
@@ -261,99 +260,9 @@ function _buildBlogPostsBase(): CollectionConfig {
                     data.metaImage = firstImage
                 }
 
-                if (data.slug) {
-                    const conflictingArticles = await req.payload.find({
-                        collection: 'blog' as any,
-                        where: {
-                            and: [
-                                ...(articleId ? [ { id: { not_equals: articleId } } ] : []),
-                                { slug: { equals: data.slug } },
-                            ],
-                        },
-                        limit: 1,
-                    })
-
-                    if (conflictingArticles.docs.length > 0) {
-                        let counter = 2
-                        const baseSlug = data.slug
-                        while (counter <= 100) {
-                            const candidate = `${baseSlug}-${counter}`
-                            const testConflict = await req.payload.find({
-                                collection: 'blog' as any,
-                                where: {
-                                    and: [
-                                        ...(articleId ? [ { id: { not_equals: articleId } } ] : []),
-                                        { slug: { equals: candidate } },
-                                    ],
-                                },
-                                limit: 1,
-                            })
-                            if (testConflict.docs.length === 0) {
-                                data.slug = candidate
-                                break
-                            }
-                            counter++
-                        }
-                    }
-                }
-
-                const rawLocale = req.locale
-                const currentLocale = (typeof rawLocale === 'string' && rawLocale && rawLocale !== 'undefined' && rawLocale !== 'null')
-                    ? rawLocale
-                    : 'en'
-
-                const landing = await req.payload.find({
-                    collection: 'pages' as any,
-                    where: { pageType: { equals: 'blog' } },
-                    depth: 0,
-                    limit: 1,
-                })
-                const landingDoc = landing.docs[0] as any | undefined
-                const rawLandingPaths = landingDoc?.localizedPaths
-                let landingLocalizedPaths: Record<string, string> = {}
-                if (rawLandingPaths && typeof rawLandingPaths === 'object' && Object.keys(rawLandingPaths).length > 0) {
-                    landingLocalizedPaths = rawLandingPaths
-                } else if (landingDoc?.path) {
-                    landingLocalizedPaths = { en: landingDoc.path }
-                } else {
-                    landingLocalizedPaths = { en: '/blog' }
-                }
-
-                const allSlugs: Record<string, string> = {}
-                if (articleId) {
-                    try {
-                        const existing = await req.payload.findByID({
-                            collection: 'blog' as any,
-                            id: articleId,
-                            locale: 'all' as any,
-                            depth: 0,
-                            draft: true,
-                        })
-                        const slugField = (existing as any).slug
-                        if (typeof slugField === 'object' && slugField !== null) {
-                            for (const [ locale, slug ] of Object.entries(slugField as Record<string, string>)) {
-                                if (slug) allSlugs[locale] = slug
-                            }
-                        } else if (typeof slugField === 'string' && slugField) {
-                            allSlugs[currentLocale] = slugField
-                        }
-                    } catch (_) {}
-                }
-                if (data.slug) {
-                    allSlugs[currentLocale] = data.slug
-                }
-
-                const localizedPaths: Record<string, string> = {}
-                for (const [ locale, prefix ] of Object.entries(landingLocalizedPaths)) {
-                    const slugForLocale = allSlugs[locale]
-                    if (slugForLocale) {
-                        localizedPaths[locale] = `${prefix}/${slugForLocale}`
-                    }
-                }
-                ;(data as any).localizedPaths = localizedPaths
-
                 return data
             },
+            buildLandingBoundPathsHook({ pageType: 'blog', nameFieldName: 'title' }),
         ],
     },
 }
