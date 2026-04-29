@@ -16,6 +16,9 @@ declare module '$env/static/public' {
 }
 
 declare namespace App {
+    interface Error {
+        page?: any
+    }
     interface Locals {
         isPreview: boolean
         isInIframe: boolean
