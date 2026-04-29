@@ -1,4 +1,4 @@
-import type { CollectionBeforeChangeHook } from 'payload'
+import { APIError, type CollectionBeforeChangeHook } from 'payload'
 import { generateSlugFromName } from './generateSlugFromName'
 
 type Config = {
@@ -96,9 +96,11 @@ export const buildLandingBoundPathsHook = (cfg: Config): CollectionBeforeChangeH
 
     const landingDoc = await getLanding(req, cfg.pageType)
     if (!landingDoc) {
-        throw new Error(
-            `Cannot save ${collectionSlug}: create a Page with pageType="${cfg.pageType}" first. ` +
-                `${collectionSlug} documents need a landing page to derive their URL prefix from.`,
+        throw new APIError(
+            `Create a Page with pageType="${cfg.pageType}" first. ${collectionSlug} documents need a landing page to derive their URL from.`,
+            400,
+            undefined,
+            true,
         )
     }
 
@@ -113,19 +115,16 @@ export const buildLandingBoundPathsHook = (cfg: Config): CollectionBeforeChangeH
     }
 
     if (allSlugs[currentLocale] && prefixes[currentLocale] !== undefined) {
-        const conflictExists = async (path: string): Promise<boolean> => {
-            const localesToCheck = localization?.locales ?? [currentLocale]
-            const orClauses = localesToCheck.map((l) => ({
-                [`localizedPaths.${l}`]: { equals: path },
-            }))
+        const slugConflictExists = async (slug: string): Promise<boolean> => {
             const result = await req.payload.find({
                 collection: collectionSlug as any,
                 where: {
                     and: [
                         ...(docId ? [{ id: { not_equals: docId } }] : []),
-                        orClauses.length > 1 ? { or: orClauses } : orClauses[0],
+                        { [slugFieldName]: { equals: slug } },
                     ],
                 },
+                locale: currentLocale as any,
                 limit: 1,
                 depth: 0,
                 draft: true,
@@ -134,13 +133,12 @@ export const buildLandingBoundPathsHook = (cfg: Config): CollectionBeforeChangeH
             return result.docs.length > 0
         }
 
-        const proposedPath = `${prefixes[currentLocale]}/${allSlugs[currentLocale]}`
-        if (await conflictExists(proposedPath)) {
+        if (await slugConflictExists(allSlugs[currentLocale])) {
             const base = allSlugs[currentLocale]
             let counter = 2
             while (counter <= 100) {
                 const candidate = `${base}-${counter}`
-                if (!(await conflictExists(`${prefixes[currentLocale]}/${candidate}`))) {
+                if (!(await slugConflictExists(candidate))) {
                     allSlugs[currentLocale] = candidate
                     data[slugFieldName] = candidate
                     break
@@ -148,7 +146,7 @@ export const buildLandingBoundPathsHook = (cfg: Config): CollectionBeforeChangeH
                 counter++
             }
             if (counter > 100) {
-                throw new Error(`Could not generate unique slug for "${base}" after 100 attempts`)
+                throw new APIError(`Could not generate a unique slug for "${base}" after 100 attempts.`, 400, undefined, true)
             }
         }
     }

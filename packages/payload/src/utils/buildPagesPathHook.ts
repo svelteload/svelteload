@@ -1,4 +1,4 @@
-import type { CollectionBeforeChangeHook } from 'payload'
+import { APIError, type CollectionBeforeChangeHook } from 'payload'
 import { generateSlugFromName } from './generateSlugFromName'
 
 type Config = {
@@ -36,29 +36,26 @@ export const buildPagesPathHook = (cfg: Config = {}): CollectionBeforeChangeHook
         if (nameFieldName && data[nameFieldName]) {
             candidate = `/${generateSlugFromName(data[nameFieldName])}`
         } else {
-            throw new Error(`Cannot save ${collectionSlug}: provide a ${pathFieldName} or a ${nameFieldName ?? 'name'}.`)
+            throw new APIError(`Provide a ${pathFieldName} or a ${nameFieldName ?? 'name'}.`, 400, undefined, true)
         }
     } else if (candidate !== '/' && candidate.endsWith('/') && nameFieldName && data[nameFieldName]) {
         candidate = candidate + generateSlugFromName(data[nameFieldName])
     }
 
     if (!candidate.startsWith('/')) {
-        throw new Error(`${pathFieldName} must start with /`)
+        throw new APIError(`${pathFieldName} must start with /.`, 400, undefined, true)
     }
 
     const findConflictRaw = async (path: string): Promise<boolean> => {
-        const localesToCheck = localization?.locales ?? [null]
-        const orClauses = localesToCheck.map((l) => ({
-            [l ? `${pathFieldName}.${l}` : pathFieldName]: { equals: path },
-        }))
         const result = await req.payload.find({
             collection: collectionSlug as any,
             where: {
                 and: [
                     ...(docId ? [{ id: { not_equals: docId } }] : []),
-                    orClauses.length > 1 ? { or: orClauses } : orClauses[0],
+                    { [pathFieldName]: { equals: path } },
                 ],
             },
+            ...(localization ? { locale: currentLocale as any } : {}),
             limit: 1,
             depth: 0,
             draft: true,
@@ -80,7 +77,7 @@ export const buildPagesPathHook = (cfg: Config = {}): CollectionBeforeChangeHook
             counter++
         }
         if (counter > 100) {
-            throw new Error(`Could not generate unique ${pathFieldName} for "${base}" after 100 attempts`)
+            throw new APIError(`Could not generate a unique ${pathFieldName} for "${base}" after 100 attempts.`, 400, undefined, true)
         }
     }
 
