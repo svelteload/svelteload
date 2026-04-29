@@ -3,7 +3,7 @@ export type EmailShellOptions = {
     projectName: string
     /** Site URL shown as a link in the footer. Required. */
     siteUrl: string
-    /** Absolute URL of a logo image to show at the top. Optional. */
+    /** Absolute URL of a logo image to show in the footer of the email, above the project name. Optional. */
     logoUrl?: string
     /** Hidden preview text shown in the inbox preview pane. */
     previewText?: string

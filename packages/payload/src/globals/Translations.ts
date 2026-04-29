@@ -6,7 +6,7 @@ export const Translations: GlobalConfig = {
     label: 'Translations',
     admin: {
         group: 'Site Configuration',
-        description: 'Shared UI strings used in multiple places across the site (small action labels, link text, etc.). Anything specific to one block or page belongs on that block instead.',
+        description: 'Shared UI strings reused across the site. Add a row per string with a stable key (snake_case, not localized) and a localized value. Looked up by key from the frontend.',
     },
     versions: { drafts: true },
     access: {
@@ -15,80 +15,36 @@ export const Translations: GlobalConfig = {
     },
     fields: [
         {
-            type: 'tabs',
-            tabs: [
-                {
-                    label: 'Actions',
-                    description: 'Short action labels reused across forms, dialogs, and similar UI.',
-                    fields: [
-                        {
-                            type: 'row',
-                            fields: [
-                                {
-                                    name: 'clear',
-                                    type: 'text',
-                                    defaultValue: 'Clear',
-                                    localized: true,
-                                    admin: { width: '50%' },
-                                },
-                                {
-                                    name: 'done',
-                                    type: 'text',
-                                    defaultValue: 'Done',
-                                    localized: true,
-                                    admin: { width: '50%' },
-                                },
-                            ],
-                        },
-                        {
-                            type: 'row',
-                            fields: [
-                                {
-                                    name: 'cancel',
-                                    type: 'text',
-                                    defaultValue: 'Cancel',
-                                    localized: true,
-                                    admin: { width: '50%' },
-                                },
-                                {
-                                    name: 'submit',
-                                    type: 'text',
-                                    defaultValue: 'Submit',
-                                    localized: true,
-                                    admin: { width: '50%' },
-                                },
-                            ],
-                        },
-                        {
-                            name: 'search',
-                            type: 'text',
-                            defaultValue: 'Search',
-                            localized: true,
-                        },
-                    ],
+            name: 'entries',
+            type: 'array',
+            label: 'Translations',
+            admin: {
+                components: {
+                    RowLabel: {
+                        path: '@cms/components/ArrayRowLabel',
+                        clientProps: { fieldName: 'key', fallback: 'Translation' },
+                    },
                 },
+            },
+            fields: [
                 {
-                    label: 'Common',
-                    description: 'Common link and inline strings reused across pages.',
+                    type: 'row',
                     fields: [
                         {
-                            type: 'row',
-                            fields: [
-                                {
-                                    name: 'readMore',
-                                    type: 'text',
-                                    defaultValue: 'Read more',
-                                    localized: true,
-                                    admin: { width: '50%' },
-                                },
-                                {
-                                    name: 'learnMore',
-                                    type: 'text',
-                                    defaultValue: 'Learn more',
-                                    localized: true,
-                                    admin: { width: '50%' },
-                                },
-                            ],
+                            name: 'key',
+                            type: 'text',
+                            required: true,
+                            admin: {
+                                width: '40%',
+                                description: 'Stable identifier referenced from the frontend, e.g. "contact_us", "done". Use snake_case.',
+                            },
+                        },
+                        {
+                            name: 'value',
+                            type: 'text',
+                            required: true,
+                            localized: true,
+                            admin: { width: '60%' },
                         },
                     ],
                 },

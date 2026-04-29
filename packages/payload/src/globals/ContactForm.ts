@@ -18,15 +18,6 @@ export const ContactForm: GlobalConfig = {
                     label: 'Email Configuration',
                     fields: [
                         {
-                            name: 'logo',
-                            type: 'upload',
-                            relationTo: 'media',
-                            label: 'Email Logo',
-                            admin: {
-                                description: 'Shown at the top of every email sent from the contact form. Upload a PNG. Falls back to the company logo if left blank.',
-                            },
-                        },
-                        {
                             name: 'emailConfig',
                             type: 'group',
                             label: 'Internal Notification',
@@ -108,6 +99,15 @@ export const ContactForm: GlobalConfig = {
                                     },
                                 },
                             ],
+                        },
+                        {
+                            name: 'logo',
+                            type: 'upload',
+                            relationTo: 'media',
+                            label: 'Email Logo',
+                            admin: {
+                                description: 'Optional brand logo shown above the project name in the email footer. Most often unused: many email clients block remote images by default and recipients see a broken icon until they approve images.',
+                            },
                         },
                     ],
                 },

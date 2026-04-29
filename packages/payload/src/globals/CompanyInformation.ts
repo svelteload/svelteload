@@ -68,7 +68,7 @@ export const CompanyInformation: GlobalConfig = {
                             type: 'upload',
                             relationTo: 'media',
                             admin: {
-                                description: 'Canonical brand logo. Used by Schema.org Organization and as a fallback for footer/email logos.',
+                                description: 'Square brand icon (not the wide wordmark). Used by Schema.org Organization in search-engine knowledge panels and rich results. Recommended: 512x512 PNG with a transparent background. Minimum 112x112.',
                             },
                         },
                     ],
