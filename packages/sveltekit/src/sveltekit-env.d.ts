@@ -21,3 +21,9 @@ declare namespace App {
         isInIframe: boolean
     }
 }
+
+interface Window {
+    umami?: {
+        track: (eventName: string, eventData?: Record<string, unknown>) => void
+    }
+}
