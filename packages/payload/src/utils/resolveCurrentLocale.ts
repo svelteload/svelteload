@@ -9,16 +9,9 @@ export const getLocalization = (req: any): Localization | null => {
     return { locales, defaultLocale: loc.defaultLocale ?? locales[0] }
 }
 
-/**
- * Returns the locale to key `localizedPaths` under. Non-localized projects
- * always get 'en' so single-language sites still produce `{ en: "/path" }`,
- * which is what the search index, sitemap, and routable-url helpers expect.
- *
- * On localized projects we trust `req.locale` only if it's one of the
- * configured codes; the admin UI can send the literal string "undefined"
- * when its locale switcher hasn't initialised, which would otherwise
- * become a bogus key.
- */
+// Falls back to defaultLocale (or 'en' if no localization). Required because
+// the admin UI can send req.locale as the literal string "undefined" before
+// its locale switcher initialises, which would otherwise become a bogus key.
 export const resolveCurrentLocale = (req: any, localization: Localization | null): string => {
     if (!localization) return 'en'
     const reqLocale = req.locale

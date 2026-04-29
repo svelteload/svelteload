@@ -61,12 +61,7 @@ function deriveSlug(title: string, plainText: string): string {
     return `post-${Date.now()}`
 }
 
-/**
- * Build the BlogPosts collection. Pass the rest of the collections array so
- * BlogPosts can auto-detect whether Tags is registered and conditionally
- * include the tags relationship field. Single toggle: add/remove Tags from
- * the siblings list and BlogPosts adapts.
- */
+// `siblings` is checked for a Tags collection; its presence toggles the tags relationship field.
 export function buildBlogPosts(siblings: CollectionConfig[] = []): CollectionConfig {
     const hasTags = siblings.some((c) => c?.slug === 'tags')
     const tagsField = hasTags

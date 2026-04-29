@@ -1,11 +1,7 @@
 import type { CollectionConfig, GlobalConfig } from 'payload'
 import { isAdminOrEditor } from '@cms/access/roles'
 
-/**
- * Build the BlogSettings global. Pass the rest of the collections array so
- * BlogSettings can auto-detect whether Tags is registered and conditionally
- * include the tagsHeading field.
- */
+// `siblings` is checked for a Tags collection; its presence toggles tagsHeading.
 export function buildBlogSettings(siblings: CollectionConfig[] = []): GlobalConfig {
     const hasTags = siblings.some((c) => c?.slug === 'tags')
 

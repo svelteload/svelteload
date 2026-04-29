@@ -90,41 +90,33 @@ export const Media: CollectionConfig = {
     ],
     upload: {
         mimeTypes: [
-            // Images
             'image/*',
-            // Videos
             'video/mp4',
             'video/webm',
             'video/ogg',
             'video/avi',
             'video/mov',
             'video/quicktime',
-            // Audio
             'audio/mpeg',
             'audio/mp3',
             'audio/wav',
             'audio/ogg',
             'audio/aac',
-            // Documents
             'application/pdf',
             'application/msword',
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'application/rtf',
             'text/plain',
             'text/markdown',
-            // Spreadsheets
             'application/vnd.ms-excel',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'text/csv',
-            // Presentations
             'application/vnd.ms-powerpoint',
             'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            // Archives
             'application/zip',
             'application/x-rar-compressed',
             'application/x-7z-compressed',
             'application/gzip',
-            // Other common formats
             'application/json',
             'application/xml',
             'text/xml',
