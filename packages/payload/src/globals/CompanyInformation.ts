@@ -23,10 +23,9 @@ export const CompanyInformation: GlobalConfig = {
                                 {
                                     name: 'brandName',
                                     type: 'text',
-                                    required: true,
                                     admin: {
                                         width: '50%',
-                                        description: 'The name customers know you by. Used as Schema.org name.',
+                                        description: 'The name customers know you by. Used as Schema.org name. If left blank, no Schema.org Organization data is emitted.',
                                     },
                                 },
                                 {
@@ -83,13 +82,11 @@ export const CompanyInformation: GlobalConfig = {
                                 {
                                     name: 'email',
                                     type: 'email',
-                                    required: true,
                                     admin: { width: '50%' },
                                 },
                                 {
                                     name: 'phoneNumber',
                                     type: 'text',
-                                    required: true,
                                     admin: { width: '50%' },
                                 },
                             ],
@@ -101,7 +98,6 @@ export const CompanyInformation: GlobalConfig = {
                                 {
                                     name: 'streetAddress',
                                     type: 'text',
-                                    required: true,
                                 },
                                 {
                                     type: 'row',
@@ -109,21 +105,22 @@ export const CompanyInformation: GlobalConfig = {
                                         {
                                             name: 'postalCode',
                                             type: 'text',
-                                            required: true,
                                             admin: { width: '30%' },
                                         },
                                         {
                                             name: 'city',
                                             type: 'text',
-                                            required: true,
-                                            admin: { width: '70%' },
+                                            localized: true,
+                                            admin: {
+                                                width: '70%',
+                                                description: 'Localize when the city has an established English exonym (e.g. Göteborg → Gothenburg, München → Munich). Leave the native spelling otherwise.',
+                                            },
                                         },
                                     ],
                                 },
                                 {
                                     name: 'country',
                                     type: 'text',
-                                    required: true,
                                     localized: true,
                                 },
                             ],
