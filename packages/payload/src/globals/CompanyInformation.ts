@@ -125,27 +125,6 @@ export const CompanyInformation: GlobalConfig = {
                                 },
                             ],
                         },
-                        {
-                            type: 'row',
-                            fields: [
-                                {
-                                    name: 'corporateIdLabel',
-                                    type: 'text',
-                                    label: 'Corporate ID Label',
-                                    localized: true,
-                                    admin: {
-                                        width: '50%',
-                                        description: 'Localized label for the corporate ID, e.g. "Org. nr".',
-                                    },
-                                },
-                                {
-                                    name: 'corporateId',
-                                    type: 'text',
-                                    label: 'Corporate ID',
-                                    admin: { width: '50%' },
-                                },
-                            ],
-                        },
                     ],
                 },
                 {
