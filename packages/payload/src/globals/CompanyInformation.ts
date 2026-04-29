@@ -4,7 +4,7 @@ import { isAdminOrEditor } from '@cms/access/roles'
 export const CompanyInformation: GlobalConfig = {
     slug: 'company-info',
     label: 'Company Information',
-    admin: { group: 'Contact' },
+    admin: { group: 'Site Configuration' },
     versions: { drafts: true },
     access: {
         read: () => true,
@@ -156,42 +156,23 @@ export const CompanyInformation: GlobalConfig = {
                             type: 'array',
                             label: 'Social Profiles',
                             admin: {
-                                description: 'Links to official company profiles. Used as Schema.org sameAs and (optionally) by the footer. Available variants depend on platform; the frontend falls back to "Glyph" if a chosen variant is unsupported.',
+                                description: 'Links to official company profiles. Each row is an icon + URL pair. Used as Schema.org sameAs and (optionally) by the footer or other social UI.',
                                 components: {
                                     RowLabel: {
                                         path: '@cms/components/ArrayRowLabel',
-                                        clientProps: { fieldName: 'platform', fallback: 'Profile' },
+                                        clientProps: { fieldName: 'label', fallback: 'Profile' },
                                     },
                                 },
                             },
                             fields: [
                                 {
-                                    name: 'platform',
-                                    type: 'select',
+                                    name: 'icon',
+                                    type: 'upload',
+                                    relationTo: 'media',
                                     required: true,
-                                    options: [
-                                        { label: 'LinkedIn', value: 'linkedin' },
-                                        { label: 'Facebook', value: 'facebook' },
-                                        { label: 'Instagram', value: 'instagram' },
-                                        { label: 'X', value: 'x' },
-                                        { label: 'Other', value: 'other' },
-                                    ],
-                                },
-                                {
-                                    name: 'variant',
-                                    type: 'select',
-                                    defaultValue: 'glyph',
                                     admin: {
-                                        condition: (_, sib) => sib?.platform && sib.platform !== 'other',
-                                        description: 'Glyph: bare mark, monochrome (currentColor). Circle: bare mark inside a circle (Facebook). Gradient: official brand gradient (Instagram). Bug: "in" inside a box, monochrome (LinkedIn). Bug Color: "in" inside the official LinkedIn-blue box.',
+                                        description: 'Icon shown wherever this profile is rendered. Upload the exact image you want displayed (typically a small square SVG or PNG).',
                                     },
-                                    options: [
-                                        { label: 'Glyph', value: 'glyph' },
-                                        { label: 'Circle', value: 'circle' },
-                                        { label: 'Gradient', value: 'gradient' },
-                                        { label: 'Bug', value: 'bug' },
-                                        { label: 'Bug Color', value: 'bug-color' },
-                                    ],
                                 },
                                 {
                                     name: 'url',
@@ -199,12 +180,11 @@ export const CompanyInformation: GlobalConfig = {
                                     required: true,
                                 },
                                 {
-                                    name: 'icon',
-                                    type: 'upload',
-                                    relationTo: 'media',
+                                    name: 'label',
+                                    type: 'text',
+                                    localized: true,
                                     admin: {
-                                        condition: (_, sib) => sib?.platform === 'other',
-                                        description: 'Required for "Other" platforms. Built-in icons are used for known platforms.',
+                                        description: 'Used as the icon\'s alt text and the admin row label. E.g. "LinkedIn", "Facebook".',
                                     },
                                 },
                             ],
