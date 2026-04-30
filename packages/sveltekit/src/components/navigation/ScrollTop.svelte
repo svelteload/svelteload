@@ -4,9 +4,10 @@
     interface Props {
         scrollY: number
         icon: Snippet
+        liftSelector?: string | null
     }
 
-    let { scrollY = $bindable(), icon }: Props = $props()
+    let { scrollY = $bindable(), icon, liftSelector = 'footer .legal-section' }: Props = $props()
 
     let viewportHeight = $state(0)
     let liftPx = $state(0)
@@ -14,13 +15,16 @@
     $effect(() => {
         scrollY
         viewportHeight
-        if (viewportHeight === 0) return
-        const legal = document.querySelector('footer .legal-section') as HTMLElement | null
-        if (!legal) {
+        if (viewportHeight === 0 || !liftSelector) {
             liftPx = 0
             return
         }
-        const rect = legal.getBoundingClientRect()
+        const target = document.querySelector(liftSelector) as HTMLElement | null
+        if (!target) {
+            liftPx = 0
+            return
+        }
+        const rect = target.getBoundingClientRect()
         liftPx = Math.max(0, viewportHeight - rect.top)
     })
 
