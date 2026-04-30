@@ -67,6 +67,15 @@ async function writeIndexRows(
 
   if (!fullDoc) return
 
+  const pageType = collection === 'pages' ? (fullDoc as { pageType?: string }).pageType : undefined
+  if (pageType === 'search' || pageType === '404') {
+    await pool.query(
+      `DELETE FROM search.search_index WHERE collection = $1 AND doc_id = $2`,
+      [collection, String(docId)],
+    )
+    return
+  }
+
   const { perLocale, title } = extractText(fullDoc, localeCodes, fields, {
     extraSkipKeys: options.extraSkipKeys,
   })
