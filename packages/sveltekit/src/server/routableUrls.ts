@@ -89,8 +89,8 @@ export async function resolveUrlToDoc(
         overrideAccess: true,
         ...findOpts(lang),
     })
-    const pageDoc = pageResult.docs[0] as { id?: string | number } | undefined
-    if (pageDoc?.id != null) {
+    const pageDoc = pageResult.docs[0] as { id?: string | number; pageType?: string } | undefined
+    if (pageDoc?.id != null && pageDoc.pageType !== '404') {
         return { collection: 'pages', id: pageDoc.id, locale: lang ?? undefined }
     }
 
@@ -161,6 +161,7 @@ export async function enumerateRoutableDocs(
         const seen = new Set<string | number>()
         for (const raw of result.docs as AnyDoc[]) {
             if (raw.id == null || seen.has(raw.id)) continue
+            if (collection === 'pages' && (raw as { pageType?: string }).pageType === '404') continue
             seen.add(raw.id)
             const localizedPaths = readLocalizedPaths(raw, fallbackLocale)
             if (Object.keys(localizedPaths).length === 0) continue

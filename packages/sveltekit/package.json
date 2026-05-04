@@ -9,7 +9,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./*": "./src/*.ts",
-    "./*.svelte": "./src/*.svelte"
+    "./*.svelte": ["./src/*.svelte.ts", "./src/*.svelte"]
   },
   "scripts": {
     "check": "tsc --noEmit"
