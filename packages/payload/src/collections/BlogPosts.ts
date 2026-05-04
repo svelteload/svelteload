@@ -192,7 +192,6 @@ function _buildBlogPostsBase(): CollectionConfig {
             type: 'upload',
             relationTo: 'media',
             label: 'Meta Image',
-            localized: true,
             admin: {
                 position: 'sidebar',
                 description: 'Auto-generated from your first uploaded image. Override to use a different image for social sharing.',
