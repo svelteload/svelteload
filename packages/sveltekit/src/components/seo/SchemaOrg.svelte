@@ -29,9 +29,10 @@
         siteUrl: string
         searchPath?: string | null
         inLanguage?: string
+        locale?: string | null
     }
 
-    let { companyInfo, siteUrl, searchPath, inLanguage = 'en' }: Props = $props()
+    let { companyInfo, siteUrl, searchPath, inLanguage = 'en', locale = null }: Props = $props()
 
     function safeJson(obj: unknown): string {
         return JSON.stringify(obj)
@@ -53,6 +54,7 @@
     }
 
     const url = $derived(normalizedSiteUrl(siteUrl))
+    const websiteUrl = $derived(locale ? `${url}/${locale}` : url)
 
     const organization = $derived.by(() => {
         if (!companyInfo?.brandName || !url) return null
@@ -96,7 +98,7 @@
             '@context': 'https://schema.org',
             '@type': 'WebSite',
             name: companyInfo.brandName,
-            url,
+            url: websiteUrl,
             inLanguage,
         }
         if (searchPath) {
