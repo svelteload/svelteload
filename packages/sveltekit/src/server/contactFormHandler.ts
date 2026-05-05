@@ -86,9 +86,11 @@ type NormalizedSettings = {
     emailProjectName: string
     emailLogoUrl: string
     yourSubject: string
+    yourPreHeader: string
     yourMessage: string
     yourFooterNote: string
     confirmationSubject: string
+    confirmationPreHeader: string
     confirmationMessage: string
     confirmationFooterNote: string
 }
@@ -122,9 +124,11 @@ function normalizeSettings(combined: any | null, alt: any | null): NormalizedSet
         emailProjectName: c.email_project_name ?? c.projectName ?? '',
         emailLogoUrl: c.email_logo_url ?? c.logoUrl ?? '',
         yourSubject: c.your_subject ?? c.internalSubject ?? '',
+        yourPreHeader: c.internal_pre_header ?? c.internalPreHeader ?? a.internal_pre_header ?? a.internalPreHeader ?? '',
         yourMessage: c.your_message ?? c.internalTemplate ?? '',
         yourFooterNote: c.your_footer_note ?? c.internalFooterNote ?? '',
         confirmationSubject: a.confirmationSubject ?? a.confirmation_subject ?? c.confirmation_subject ?? c.confirmationSubject ?? '',
+        confirmationPreHeader: a.confirmationPreHeader ?? a.confirmation_pre_header ?? c.confirmation_pre_header ?? c.confirmationPreHeader ?? '',
         confirmationMessage: a.confirmationTemplate ?? a.confirmation_message ?? c.confirmation_message ?? c.confirmationTemplate ?? '',
         confirmationFooterNote: a.confirmationFooterNote ?? a.confirmation_footer_note ?? c.confirmation_footer_note ?? c.confirmationFooterNote ?? '',
     }
@@ -307,7 +311,7 @@ export const POST: RequestHandler = async ({ request }) => {
                 projectName,
                 siteUrl,
                 logoUrl,
-                previewText: `New contact form submission from ${textVars.full_name || textVars.email}`,
+                previewText: settings.yourPreHeader ? fillTemplate(settings.yourPreHeader, textVars) : '',
                 footerNote: settings.yourFooterNote || undefined,
             }),
             attachments,
@@ -323,7 +327,7 @@ export const POST: RequestHandler = async ({ request }) => {
                 projectName,
                 siteUrl,
                 logoUrl,
-                previewText: 'We received your message and will get back to you shortly.',
+                previewText: settings.confirmationPreHeader ? fillTemplate(settings.confirmationPreHeader, textVars) : '',
                 footerNote: settings.confirmationFooterNote || undefined,
             }),
         }

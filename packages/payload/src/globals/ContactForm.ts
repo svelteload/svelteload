@@ -45,7 +45,15 @@ export const ContactForm: GlobalConfig = {
                                     required: true,
                                     localized: true,
                                     admin: {
-                                        description: 'Subject line for the internal notification. Placeholders: {full_name}, {email}, {company_name}, {phone_number}, {subject}, {subjects}.',
+                                        description: 'Subject line for the internal notification. Placeholders: {full_name}, {email}, {company_name}, {phone_number}, {subject}.',
+                                    },
+                                },
+                                {
+                                    name: 'internalPreHeader',
+                                    type: 'text',
+                                    localized: true,
+                                    admin: {
+                                        description: 'Optional preheader shown next to the subject in the inbox preview. Keep short, around 30-50 characters; mobile clients clip aggressively. Same placeholders as the subject. Leave empty to fall back to the email body\'s first line.',
                                     },
                                 },
                                 {
@@ -79,6 +87,14 @@ export const ContactForm: GlobalConfig = {
                                     localized: true,
                                     admin: {
                                         description: 'Subject line for the confirmation email sent to the customer. Same placeholders available as the internal subject.',
+                                    },
+                                },
+                                {
+                                    name: 'confirmationPreHeader',
+                                    type: 'text',
+                                    localized: true,
+                                    admin: {
+                                        description: 'Optional preheader shown next to the subject in the customer\'s inbox preview. Keep short, around 30-50 characters; mobile clients clip aggressively. Same placeholders as the subject. Leave empty to fall back to the email body\'s first line.',
                                     },
                                 },
                                 {
