@@ -40,6 +40,7 @@ export const Translations: GlobalConfig = {
     admin: {
         group: 'Site Configuration',
         description: 'Shared UI strings reused across the site. Admin-only because removing a key here breaks every component that reads it. The Common section covers strings every site needs; add anything project-specific to Custom.',
+        hidden: ({ user }) => !user || (user as { role?: string }).role !== 'admin',
     },
     versions: { drafts: true },
     access: {
