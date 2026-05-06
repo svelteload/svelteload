@@ -35,7 +35,7 @@ export async function throwNotFound({
         const result = await payload.find({
             collection: 'pages',
             ...(lang ? { locale: lang as any } : {}),
-            where: { path: { equals: '/404' } },
+            where: { pageType: { equals: '404' } },
             draft: true,
             depth: 2,
             limit: 1,

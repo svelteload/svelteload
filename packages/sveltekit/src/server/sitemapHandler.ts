@@ -51,8 +51,6 @@ ${urls
     .join('\n')}
 </urlset>`
 
-const isExcludedPath = (path: string): boolean => path === '/404'
-
 export const GET: RequestHandler = async () => {
     const payload = await getPayloadInstance()
     const baseUrl = PUBLIC_SITE_URL.replace(/\/$/, '')
@@ -66,7 +64,6 @@ export const GET: RequestHandler = async () => {
         for (const doc of docs) {
             const langs = Object.keys(doc.localizedPaths)
             if (langs.length === 0) continue
-            if (Object.values(doc.localizedPaths).some(isExcludedPath)) continue
 
             const xDefaultLang = doc.localizedPaths[defaultLocale]
                 ? defaultLocale
@@ -105,7 +102,6 @@ export const GET: RequestHandler = async () => {
     const urls: SimpleEntry[] = []
     for (const doc of docs) {
         for (const path of Object.values(doc.localizedPaths)) {
-            if (isExcludedPath(path)) continue
             urls.push({
                 loc: `${baseUrl}${path === '/' ? '' : path}`,
                 lastmod: formatLastmod(doc.updatedAt),
