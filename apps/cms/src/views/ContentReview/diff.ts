@@ -21,23 +21,8 @@ export interface DocumentDiff {
   fieldDiffs: FieldDiff[]
   itemDiffs: ItemDiff[]
   hasChanges: boolean
-  changedFieldsSummary: string
-}
-
-export interface PendingDraft {
-  type: 'collection' | 'global'
-  collection?: string
-  collectionLabel?: string
-  globalSlug?: string
-  globalLabel?: string
-  parentId?: string
-  documentTitle: string
-  versionId: string
-  updatedAt: string
-  editUrl: string
-  compareUrl: string
   isNew: boolean
-  diff: DocumentDiff
+  changedFieldsSummary: string
 }
 
 const SKIP_FIELDS = new Set([
@@ -60,8 +45,6 @@ const SKIP_FIELDS = new Set([
   'hash',
   'salt',
 ])
-
-const SYSTEM_SLUGS = new Set(['users', 'media', 'payload-preferences', 'payload-migrations'])
 
 function isLexical(val: unknown): val is { root: unknown } {
   return typeof val === 'object' && val !== null && !Array.isArray(val) && 'root' in val
@@ -115,16 +98,6 @@ function getItemLabel(item: Record<string, unknown>, localeCodes: string[]): str
     resolveString(item.text, localeCodes) ||
     resolveString(item.title, localeCodes) ||
     String(item.blockType ?? 'Item')
-  )
-}
-
-function getDocumentTitle(collection: string, doc: Record<string, unknown>, localeCodes: string[]): string {
-  if (collection === 'menus') return resolveString(doc?.name, localeCodes) || 'Unnamed menu'
-  return (
-    resolveString(doc?.title, localeCodes) ||
-    resolveString(doc?.name, localeCodes) ||
-    resolveString(doc?.metaTitle, localeCodes) ||
-    'Untitled'
   )
 }
 
@@ -208,11 +181,11 @@ function compareIdArrays(
   return diffs
 }
 
-export function computeDiff(
+function computeLocaleDiff(
   published: Record<string, unknown>,
   draft: Record<string, unknown>,
   localeCodes: string[],
-): DocumentDiff {
+): { fieldDiffs: FieldDiff[]; itemDiffs: ItemDiff[] } {
   const fieldDiffs: FieldDiff[] = []
   const itemDiffs: ItemDiff[] = []
   const allKeys = new Set([...Object.keys(published), ...Object.keys(draft)])
@@ -252,23 +225,24 @@ export function computeDiff(
     if (oldStr !== newStr && (oldStr || newStr)) fieldDiffs.push({ path: key, old: oldStr, new: newStr })
   }
 
-  const hasChanges = fieldDiffs.length > 0 || itemDiffs.length > 0
-  return { fieldDiffs, itemDiffs, hasChanges, changedFieldsSummary: buildSummary(fieldDiffs, itemDiffs) }
+  return { fieldDiffs, itemDiffs }
 }
 
-function mergeAllLocaleDiffs(localeDiffs: Array<{ code: string; diff: DocumentDiff }>): DocumentDiff {
-  if (localeDiffs.length === 0) return { fieldDiffs: [], itemDiffs: [], hasChanges: false, changedFieldsSummary: '' }
+function mergeAllLocaleDiffs(
+  localeDiffs: Array<{ code: string; fieldDiffs: FieldDiff[]; itemDiffs: ItemDiff[] }>,
+): { fieldDiffs: FieldDiff[]; itemDiffs: ItemDiff[] } {
+  if (localeDiffs.length === 0) return { fieldDiffs: [], itemDiffs: [] }
 
   const fieldDiffs: FieldDiff[] = []
-  const allFieldPaths = new Set(localeDiffs.flatMap(({ diff }) => diff.fieldDiffs.map((d) => d.path)))
+  const allFieldPaths = new Set(localeDiffs.flatMap(({ fieldDiffs }) => fieldDiffs.map((d) => d.path)))
 
   for (const path of allFieldPaths) {
     const perLocale = localeDiffs
-      .map(({ code, diff }) => ({ code, field: diff.fieldDiffs.find((d) => d.path === path) }))
+      .map(({ code, fieldDiffs }) => ({ code, field: fieldDiffs.find((d) => d.path === path) }))
       .filter(({ field }) => field !== undefined) as Array<{ code: string; field: FieldDiff }>
 
     const allSame = perLocale.every(
-      ({ field }) => field.old === perLocale[0].field.old && field.new === perLocale[0].field.new
+      ({ field }) => field.old === perLocale[0].field.old && field.new === perLocale[0].field.new,
     )
 
     if (allSame) {
@@ -281,11 +255,11 @@ function mergeAllLocaleDiffs(localeDiffs: Array<{ code: string; diff: DocumentDi
   }
 
   const itemDiffs: ItemDiff[] = []
-  const allItemIds = new Set(localeDiffs.flatMap(({ diff }) => diff.itemDiffs.map((d) => d.itemId)))
+  const allItemIds = new Set(localeDiffs.flatMap(({ itemDiffs }) => itemDiffs.map((d) => d.itemId)))
 
   for (const id of allItemIds) {
     const perLocale = localeDiffs
-      .map(({ code, diff }) => ({ code, item: diff.itemDiffs.find((d) => d.itemId === id) }))
+      .map(({ code, itemDiffs }) => ({ code, item: itemDiffs.find((d) => d.itemId === id) }))
       .filter(({ item }) => item !== undefined) as Array<{ code: string; item: ItemDiff }>
 
     if (perLocale.length === 0) continue
@@ -310,7 +284,7 @@ function mergeAllLocaleDiffs(localeDiffs: Array<{ code: string; diff: DocumentDi
         .filter(({ field }) => field !== undefined) as Array<{ code: string; field: FieldDiff }>
 
       const allSame = perLocaleFields.every(
-        ({ field }) => field.old === perLocaleFields[0].field.old && field.new === perLocaleFields[0].field.new
+        ({ field }) => field.old === perLocaleFields[0].field.old && field.new === perLocaleFields[0].field.new,
       )
 
       if (allSame) {
@@ -327,16 +301,23 @@ function mergeAllLocaleDiffs(localeDiffs: Array<{ code: string; diff: DocumentDi
     }
   }
 
-  const hasChanges = fieldDiffs.length > 0 || itemDiffs.length > 0
-  return { fieldDiffs, itemDiffs, hasChanges, changedFieldsSummary: buildSummary(fieldDiffs, itemDiffs) }
+  return { fieldDiffs, itemDiffs }
 }
 
-async function fetchDocumentDiff(
+function getLocaleCodes(payload: Payload): string[] {
+  const localeConfig = payload.config.localization !== false ? payload.config.localization : undefined
+  return localeConfig && localeConfig.locales.length > 0
+    ? localeConfig.locales.map((l) => l.code)
+    : ['en']
+}
+
+export async function fetchCollectionDiff(
   payload: Payload,
   collection: string,
   parentId: string,
-  localeCodes: string[],
-): Promise<{ diff: DocumentDiff; isNew: boolean }> {
+): Promise<DocumentDiff> {
+  const localeCodes = getLocaleCodes(payload)
+
   const fetches = localeCodes.flatMap((locale) => [
     (payload.findByID as any)({ collection, id: parentId, draft: true,  locale, depth: 0, overrideAccess: true }),
     (payload.findByID as any)({ collection, id: parentId, draft: false, locale, depth: 0, overrideAccess: true }),
@@ -348,22 +329,29 @@ async function fetchDocumentDiff(
     firstPub.status === 'rejected' ||
     (firstPub.status === 'fulfilled' && (firstPub.value as Record<string, unknown>)._status !== 'published')
 
-  const localeDiffs: Array<{ code: string; diff: DocumentDiff }> = localeCodes.map((code, i) => {
+  const localeDiffs = localeCodes.map((code, i) => {
     const draftResult = results[i * 2]
     const pubResult   = results[i * 2 + 1]
     const draft = draftResult.status === 'fulfilled' ? draftResult.value as Record<string, unknown> : {}
     const pub   = isNew ? {} : (pubResult.status === 'fulfilled' ? pubResult.value as Record<string, unknown> : {})
-    return { code, diff: computeDiff(pub, draft, localeCodes) }
+    return { code, ...computeLocaleDiff(pub, draft, localeCodes) }
   })
 
-  return { diff: mergeAllLocaleDiffs(localeDiffs), isNew }
+  const { fieldDiffs, itemDiffs } = mergeAllLocaleDiffs(localeDiffs)
+  const hasChanges = fieldDiffs.length > 0 || itemDiffs.length > 0
+
+  return {
+    fieldDiffs,
+    itemDiffs,
+    hasChanges,
+    isNew,
+    changedFieldsSummary: buildSummary(fieldDiffs, itemDiffs),
+  }
 }
 
-async function fetchGlobalDiff(
-  payload: Payload,
-  slug: string,
-  localeCodes: string[],
-): Promise<{ diff: DocumentDiff; isNew: boolean }> {
+export async function fetchGlobalDiff(payload: Payload, slug: string): Promise<DocumentDiff> {
+  const localeCodes = getLocaleCodes(payload)
+
   const fetches = localeCodes.flatMap((locale) => [
     (payload.findGlobal as any)({ slug, draft: true,  locale, depth: 0, overrideAccess: true }),
     (payload.findGlobal as any)({ slug, draft: false, locale, depth: 0, overrideAccess: true }),
@@ -375,142 +363,22 @@ async function fetchGlobalDiff(
     firstPub.status === 'rejected' ||
     (firstPub.status === 'fulfilled' && (firstPub.value as Record<string, unknown>)._status !== 'published')
 
-  const localeDiffs: Array<{ code: string; diff: DocumentDiff }> = localeCodes.map((code, i) => {
+  const localeDiffs = localeCodes.map((code, i) => {
     const draftResult = results[i * 2]
     const pubResult   = results[i * 2 + 1]
     const draft = draftResult.status === 'fulfilled' ? draftResult.value as Record<string, unknown> : {}
     const pub   = isNew ? {} : (pubResult.status === 'fulfilled' ? pubResult.value as Record<string, unknown> : {})
-    return { code, diff: computeDiff(pub, draft, localeCodes) }
+    return { code, ...computeLocaleDiff(pub, draft, localeCodes) }
   })
 
-  return { diff: mergeAllLocaleDiffs(localeDiffs), isNew }
-}
+  const { fieldDiffs, itemDiffs } = mergeAllLocaleDiffs(localeDiffs)
+  const hasChanges = fieldDiffs.length > 0 || itemDiffs.length > 0
 
-export async function fetchAllPendingDrafts(payload: Payload): Promise<PendingDraft[]> {
-  const pending: PendingDraft[] = []
-
-  const localeConfig = payload.config.localization !== false ? payload.config.localization : undefined
-  const localeCodes: string[] = localeConfig && localeConfig.locales.length > 0
-    ? localeConfig.locales.map((l) => l.code)
-    : ['en']
-
-  const defaultLocale = localeConfig?.defaultLocale ?? localeCodes[0]
-
-  const COLLECTIONS = payload.config.collections
-    .filter((c) => c.versions != null && !SYSTEM_SLUGS.has(c.slug))
-    .map((c) => c.slug)
-
-  const COLLECTION_LABELS: Record<string, string> = Object.fromEntries(
-    payload.config.collections.map((c) => [
-      c.slug,
-      typeof c.labels?.singular === 'string' ? c.labels.singular : c.slug,
-    ])
-  )
-
-  const GLOBALS = payload.config.globals
-    .filter((g) => g.versions != null)
-    .map((g) => g.slug)
-
-  const GLOBAL_LABELS: Record<string, string> = Object.fromEntries(
-    payload.config.globals.map((g) => [
-      g.slug,
-      typeof g.label === 'string' ? g.label : g.slug,
-    ])
-  )
-
-  for (const collection of COLLECTIONS) {
-    try {
-      const versions = await payload.findVersions({
-        collection,
-        sort: '-updatedAt',
-        limit: 500,
-        depth: 0,
-        overrideAccess: true,
-      })
-
-      const pendingParents: Array<{ parentId: string; versionId: string; updatedAt: string }> = []
-      const seenParents = new Set<string>()
-
-      for (const v of versions.docs) {
-        const parentId = String(v.parent)
-        if (seenParents.has(parentId)) continue
-        seenParents.add(parentId)
-        const latestData = v.version as Record<string, unknown>
-        if (latestData._status !== 'draft') continue
-        pendingParents.push({ parentId, versionId: String(v.id), updatedAt: String(v.updatedAt) })
-      }
-
-      const results = await Promise.allSettled(
-        pendingParents.map(async ({ parentId, versionId, updatedAt }) => {
-          const { diff, isNew } = await fetchDocumentDiff(payload, collection, parentId, localeCodes)
-          if (!diff.hasChanges) return null
-
-          let title = 'Untitled'
-          try {
-            const doc = await (payload.findByID as any)({ collection, id: parentId, draft: true, locale: defaultLocale, depth: 0, overrideAccess: true })
-            title = getDocumentTitle(collection, doc as Record<string, unknown>, localeCodes)
-          } catch { /* use default */ }
-
-          return {
-            type: 'collection' as const,
-            collection,
-            collectionLabel: COLLECTION_LABELS[collection] ?? collection,
-            parentId,
-            documentTitle: title,
-            versionId,
-            updatedAt,
-            editUrl: `/admin/collections/${collection}/${parentId}`,
-            compareUrl: `/admin/collections/${collection}/${parentId}/versions`,
-            isNew,
-            diff,
-          } satisfies PendingDraft
-        }),
-      )
-
-      for (const r of results) {
-        if (r.status === 'fulfilled' && r.value) pending.push(r.value)
-      }
-    } catch (err) {
-      console.error(`[DraftReview] Failed to fetch drafts for collection "${collection}":`, err)
-    }
+  return {
+    fieldDiffs,
+    itemDiffs,
+    hasChanges,
+    isNew,
+    changedFieldsSummary: buildSummary(fieldDiffs, itemDiffs),
   }
-
-  await Promise.allSettled(
-    GLOBALS.map(async (slug) => {
-      try {
-        const versions = await payload.findGlobalVersions({
-          slug,
-          sort: '-updatedAt',
-          limit: 1,
-          depth: 0,
-          overrideAccess: true,
-        })
-
-        if (versions.docs.length === 0) return
-        const v = versions.docs[0]
-        const latestData = v.version as Record<string, unknown>
-        if (latestData._status !== 'draft') return
-
-        const { diff, isNew } = await fetchGlobalDiff(payload, slug, localeCodes)
-        if (!diff.hasChanges) return
-
-        pending.push({
-          type: 'global',
-          globalSlug: slug,
-          globalLabel: GLOBAL_LABELS[slug] ?? slug,
-          documentTitle: GLOBAL_LABELS[slug] ?? slug,
-          versionId: String(v.id),
-          updatedAt: String(v.updatedAt),
-          editUrl: `/admin/globals/${slug}`,
-          compareUrl: `/admin/globals/${slug}/versions`,
-          isNew,
-          diff,
-        })
-      } catch (err) {
-        console.error(`[DraftReview] Failed to fetch drafts for global "${slug}":`, err)
-      }
-    }),
-  )
-
-  return pending
 }

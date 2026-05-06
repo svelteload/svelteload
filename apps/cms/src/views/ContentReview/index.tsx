@@ -3,8 +3,10 @@
 import React, { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ContentDocument, ReviewNote } from './fetchContent'
-import { markDocumentReviewed, unmarkDocumentReviewed, saveDocumentEdits } from './actions'
+import { markDocumentReviewed, unmarkDocumentReviewed, saveDocumentEdits, fetchDocumentDiff } from './actions'
 import type { FieldEdit } from './actions'
+import type { DocumentDiff } from './diff'
+import { DiffPanel } from './DiffView'
 
 type Props = {
   documents: ContentDocument[]
@@ -12,16 +14,12 @@ type Props = {
   initialNotes: Record<string, ReviewNote>
 }
 
-type ReviewStatus = 'reviewed' | 'changed' | 'new'
+type ReviewStatus = 'reviewed' | 'draft' | 'new'
 
 function getReviewStatus(doc: ContentDocument, notes: Record<string, ReviewNote>): ReviewStatus {
+  if (doc.docStatus === 'draft') return 'draft'
   const note = notes[doc.docKey]
   if (!note) return 'new'
-  if (doc.docUpdatedAt && note.docUpdatedAt) {
-    const docTime = new Date(doc.docUpdatedAt).getTime()
-    const noteTime = new Date(note.docUpdatedAt).getTime()
-    if (docTime > noteTime) return 'changed'
-  }
   return 'reviewed'
 }
 
@@ -95,6 +93,8 @@ function DocumentCard({
   onCancelEdit,
   onStartEdit,
   isSaving,
+  diffState,
+  onToggleDiff,
 }: {
   doc: ContentDocument
   localeA: string
@@ -112,6 +112,8 @@ function DocumentCard({
   onCancelEdit: () => void
   onStartEdit: () => void
   isSaving: boolean
+  diffState: { status: 'closed' | 'loading' | 'open' | 'error'; diff?: DocumentDiff; error?: string }
+  onToggleDiff: () => void
 }) {
   const docKey = doc.docKey
   const collectionLabel =
@@ -226,9 +228,9 @@ function DocumentCard({
                 ✓ reviewed
               </span>
             )}
-            {reviewStatus === 'changed' && (
-              <span style={{ fontSize: '11px', fontWeight: 500, color: '#fb923c', background: 'rgba(251,146,60,0.08)', border: '1px solid rgba(251,146,60,0.25)', borderRadius: '10px', padding: '1px 7px' }}>
-                ↺ changed
+            {reviewStatus === 'draft' && (
+              <span style={{ fontSize: '11px', fontWeight: 500, color: '#60a5fa', background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.3)', borderRadius: '10px', padding: '1px 7px' }}>
+                Draft
               </span>
             )}
           </h3>
@@ -291,6 +293,27 @@ function DocumentCard({
                   ? 'Mark Reviewed & Publish'
                   : 'Mark Reviewed'}
               </button>
+              {doc.docStatus === 'draft' && (
+                <button
+                  type="button"
+                  onClick={onToggleDiff}
+                  disabled={diffState.status === 'loading'}
+                  style={{
+                    ...selectStyle,
+                    fontSize: '12px',
+                    color: diffState.status === 'open' ? '#60a5fa' : 'var(--theme-text, #eee)',
+                    border: `1px solid ${diffState.status === 'open' ? 'rgba(96,165,250,0.4)' : 'var(--theme-elevation-200, #333)'}`,
+                    cursor: diffState.status === 'loading' ? 'wait' : 'pointer',
+                  }}
+                  title="Show what changed since last publish"
+                >
+                  {diffState.status === 'loading'
+                    ? 'Loading…'
+                    : diffState.status === 'open'
+                    ? 'Hide edits'
+                    : 'View edits'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onStartEdit}
@@ -323,6 +346,21 @@ function DocumentCard({
           )}
         </div>
       </div>
+
+      {diffState.status === 'open' && diffState.diff && <DiffPanel diff={diffState.diff} />}
+      {diffState.status === 'error' && (
+        <div
+          style={{
+            padding: '12px 16px',
+            fontSize: '12px',
+            color: 'var(--theme-error-500, #dc3545)',
+            background: 'var(--theme-error-100, rgba(220,53,69,0.08))',
+            borderBottom: '1px solid var(--theme-elevation-150, #2a2a2a)',
+          }}
+        >
+          ✕ Could not load diff: {diffState.error}
+        </div>
+      )}
 
       {visibleFields.length === 0 ? (
         <div style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--theme-elevation-400)' }}>
@@ -531,6 +569,32 @@ export function ContentReviewList({ documents, localeCodes, initialNotes }: Prop
   const [editingDocKey, setEditingDocKey] = useState<string | null>(null)
   const [currentEdits, setCurrentEdits] = useState<Record<string, string>>({})
   const [isSaving, setIsSaving] = useState(false)
+  const [diffStates, setDiffStates] = useState<
+    Record<string, { status: 'closed' | 'loading' | 'open' | 'error'; diff?: DocumentDiff; error?: string }>
+  >({})
+
+  const handleToggleDiff = async (doc: ContentDocument) => {
+    const key = doc.docKey
+    const current = diffStates[key] ?? { status: 'closed' as const }
+    if (current.status === 'open') {
+      setDiffStates((prev) => ({ ...prev, [key]: { status: 'closed' } }))
+      return
+    }
+    if (current.diff) {
+      setDiffStates((prev) => ({ ...prev, [key]: { status: 'open', diff: current.diff } }))
+      return
+    }
+    setDiffStates((prev) => ({ ...prev, [key]: { status: 'loading' } }))
+    try {
+      const diff = await fetchDocumentDiff(key)
+      setDiffStates((prev) => ({ ...prev, [key]: { status: 'open', diff } }))
+    } catch (err) {
+      setDiffStates((prev) => ({
+        ...prev,
+        [key]: { status: 'error', error: err instanceof Error ? err.message : 'Unknown error' },
+      }))
+    }
+  }
 
   const handleToggleMark = (key: string) => {
     setMarkedFields((prev) => {
@@ -565,7 +629,14 @@ export function ContentReviewList({ documents, localeCodes, initialNotes }: Prop
             ...prev,
             [key]: { key, docUpdatedAt: updatedAt },
           }))
-          if (shouldPublish) router.refresh()
+          if (shouldPublish) {
+            setDiffStates((prev) => {
+              const next = { ...prev }
+              delete next[key]
+              return next
+            })
+            router.refresh()
+          }
         }
       } finally {
         setPendingKeys((prev) => {
@@ -609,6 +680,11 @@ export function ContentReviewList({ documents, localeCodes, initialNotes }: Prop
         ...prev,
         [doc.docKey]: { key: doc.docKey, docUpdatedAt: updatedAt },
       }))
+      setDiffStates((prev) => {
+        const next = { ...prev }
+        delete next[doc.docKey]
+        return next
+      })
       setEditingDocKey(null)
       setCurrentEdits({})
       router.refresh()
@@ -644,8 +720,13 @@ export function ContentReviewList({ documents, localeCodes, initialNotes }: Prop
     }).length
   }, [documents, notes])
 
+  const draftCount = useMemo(
+    () => documents.filter((doc) => doc.docStatus === 'draft').length,
+    [documents],
+  )
+
   const filtered = useMemo(() => {
-    if (filterKey === 'all' || filterKey === 'new') return documents
+    if (filterKey === 'all' || filterKey === 'new' || filterKey === 'drafts') return documents
     return documents.filter((doc) => {
       const key = doc.type === 'collection' ? `col:${doc.collection}` : `glob:${doc.globalSlug}`
       return key === filterKey
@@ -663,6 +744,7 @@ export function ContentReviewList({ documents, localeCodes, initialNotes }: Prop
   }, [filtered, markedFields, showMode])
 
   const visibleDocs = useMemo(() => {
+    if (filterKey === 'drafts') return displayDocs.filter((doc) => doc.docStatus === 'draft')
     if (filterKey !== 'new') return displayDocs
     return displayDocs.filter((doc) => {
       const status = getReviewStatus(doc, notes)
@@ -790,6 +872,7 @@ export function ContentReviewList({ documents, localeCodes, initialNotes }: Prop
           <span style={{ color: 'var(--theme-elevation-500)' }}>Show:</span>
           <select value={filterKey} onChange={(e) => setFilterKey(e.target.value)} style={selectStyle}>
             <option value="new">New ({newCount})</option>
+            <option value="drafts">Drafts ({draftCount})</option>
             <option value="all">All ({documents.length})</option>
             {groupOptions.map((opt) => (
               <option key={opt.key} value={opt.key}>{opt.label}</option>
@@ -831,13 +914,15 @@ export function ContentReviewList({ documents, localeCodes, initialNotes }: Prop
       {visibleDocs.length === 0 ? (
         <p style={{ color: 'var(--theme-elevation-400)', fontSize: '14px' }}>
           {showMode === 'missing'
-            ? 'No missing fields found — everything looks complete.'
+            ? 'No missing fields found, everything looks complete.'
             : showMode === 'warnings'
-            ? 'No warnings — all localized fields have distinct content.'
+            ? 'No warnings, all localized fields have distinct content.'
             : showMode === 'marked'
             ? 'No marked fields yet. Click rows to mark them.'
             : filterKey === 'new'
-            ? 'All documents reviewed — nothing new since last review.'
+            ? 'All documents reviewed, nothing new since last review.'
+            : filterKey === 'drafts'
+            ? 'No drafts pending. Everything is published.'
             : 'No documents.'}
         </p>
       ) : (
@@ -860,6 +945,8 @@ export function ContentReviewList({ documents, localeCodes, initialNotes }: Prop
             onCancelEdit={handleCancelEdit}
             onStartEdit={() => handleStartEdit(doc.docKey)}
             isSaving={isSaving}
+            diffState={diffStates[doc.docKey] ?? { status: 'closed' }}
+            onToggleDiff={() => handleToggleDiff(doc)}
           />
         ))
       )}

@@ -3,6 +3,7 @@
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { markdownToLexical } from './lexicalMarkdown'
+import { fetchCollectionDiff, fetchGlobalDiff, type DocumentDiff } from './diff'
 
 function parsePath(path: string): (string | number)[] {
   const segments: (string | number)[] = []
@@ -160,6 +161,16 @@ export async function saveDocumentEdits(
   }
 
   return { updatedAt: latestUpdatedAt || new Date().toISOString() }
+}
+
+export async function fetchDocumentDiff(docKey: string): Promise<DocumentDiff> {
+  const payload = await getPayload({ config })
+  const isGlobal = docKey.startsWith('global:')
+  const slug = isGlobal ? docKey.slice(7) : docKey.split(':')[0]
+  const id = isGlobal ? null : docKey.split(':').slice(1).join(':')
+
+  if (isGlobal) return fetchGlobalDiff(payload, slug)
+  return fetchCollectionDiff(payload, slug, id!)
 }
 
 export async function unmarkDocumentReviewed(key: string): Promise<void> {
