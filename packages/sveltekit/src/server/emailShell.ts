@@ -1,5 +1,5 @@
 export type EmailShellOptions = {
-    projectName: string
+    brandName: string
     siteUrl: string
     logoUrl?: string
     previewText?: string
@@ -14,7 +14,7 @@ const MUTED_COLOR = '#888888'
 // HTML enters the shell. The first <hr> in the rich text marks the boundary
 // into the muted "appendix" section (Your message / contact info).
 export function wrapEmailHtml(innerHtml: string, opts: EmailShellOptions): string {
-    const { projectName, siteUrl, logoUrl, previewText = '', footerNote } = opts
+    const { brandName, siteUrl, logoUrl, previewText = '', footerNote } = opts
 
     const preview = previewText
         ? `<div style="display:none;overflow:hidden;line-height:1;max-height:0;max-width:0;opacity:0;">${previewText}</div>`
@@ -25,7 +25,7 @@ export function wrapEmailHtml(innerHtml: string, opts: EmailShellOptions): strin
     const footerLogoRow = logoUrl
         ? `<tr>
               <td style="padding:16px 0 12px;border-top:1px solid #999999;${FONT}">
-                <img src="${logoUrl}" alt="${projectName}" width="140" style="display:block;max-width:140px;height:auto;border:0;" />
+                <img src="${logoUrl}" alt="${brandName} logo" width="140" style="display:block;max-width:140px;height:auto;border:0;" />
               </td>
             </tr>`
         : ''
@@ -67,7 +67,7 @@ export function wrapEmailHtml(innerHtml: string, opts: EmailShellOptions): strin
             ${footerLogoRow}
             <tr>
               <td style="${footerTextPadding}${FONT}">
-                <p style="margin:0;font-size:13px;font-weight:600;${FONT}">${projectName}</p>
+                <p style="margin:0;font-size:13px;font-weight:600;${FONT}">${brandName}</p>
                 <p style="margin:6px 0 0;font-size:12px;color:${MUTED_COLOR};${FONT}">
                   <a href="${siteUrl}" style="color:${MUTED_COLOR};text-decoration:none;${FONT}"><span style="color:${MUTED_COLOR};text-decoration:none;">${siteHost}</span></a>
                 </p>

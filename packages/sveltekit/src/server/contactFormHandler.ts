@@ -83,7 +83,7 @@ type NormalizedForm = {
 type NormalizedSettings = {
     emailTo: string
     emailFrom: string
-    emailProjectName: string
+    brandName: string
     emailLogoUrl: string
     yourSubject: string
     yourPreHeader: string
@@ -121,7 +121,7 @@ function normalizeSettings(combined: any | null, alt: any | null): NormalizedSet
     return {
         emailTo: c.email_to ?? c.toEmail ?? a.email_to ?? a.toEmail ?? '',
         emailFrom: c.email_from ?? c.fromEmail ?? a.email_from ?? a.fromEmail ?? '',
-        emailProjectName: c.email_project_name ?? c.projectName ?? '',
+        brandName: c.brandName ?? '',
         emailLogoUrl: c.email_logo_url ?? c.logoUrl ?? '',
         yourSubject: c.your_subject ?? c.internalSubject ?? '',
         yourPreHeader: c.internal_pre_header ?? c.internalPreHeader ?? a.internal_pre_header ?? a.internalPreHeader ?? '',
@@ -294,7 +294,7 @@ export const POST: RequestHandler = async ({ request }) => {
         const textVars = buildTextVars(form, attachmentFilenames, attachmentCount)
         const htmlVars = buildHtmlVars(form, attachmentFilenames, attachmentCount)
 
-        const projectName = settings.emailProjectName || projectMeta.fullProjectName || ''
+        const brandName = settings.brandName || projectMeta.brandName || ''
         const siteUrl = PUBLIC_SITE_URL || ''
         const logoUrl = settings.emailLogoUrl || undefined
 
@@ -308,7 +308,7 @@ export const POST: RequestHandler = async ({ request }) => {
             replyTo: form.email,
             subject: yourSubjectLine,
             html: wrapEmailHtml(yourInner, {
-                projectName,
+                brandName,
                 siteUrl,
                 logoUrl,
                 previewText: settings.yourPreHeader ? fillTemplate(settings.yourPreHeader, textVars) : '',
@@ -324,7 +324,7 @@ export const POST: RequestHandler = async ({ request }) => {
             replyTo: settings.emailFrom,
             subject: fillTemplate(settings.confirmationSubject || '', textVars),
             html: wrapEmailHtml(confirmInner, {
-                projectName,
+                brandName,
                 siteUrl,
                 logoUrl,
                 previewText: settings.confirmationPreHeader ? fillTemplate(settings.confirmationPreHeader, textVars) : '',

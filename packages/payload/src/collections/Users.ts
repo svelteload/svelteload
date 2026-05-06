@@ -37,8 +37,8 @@ export const Users: CollectionConfig = {
     forgotPassword: {
       expiration: 7 * 24 * 60 * 60 * 1000,
       ...forgotPasswordEmail({
-        projectName: projectMeta.projectName,
-        fullProjectName: projectMeta.fullProjectName,
+        cmsName: projectMeta.cmsName,
+        brandName: projectMeta.brandName,
         adminUrl,
         siteUrl: frontendUrl,
       }),

@@ -1,7 +1,7 @@
 export interface ForgotPasswordEmailOptions {
-  projectName: string
+  cmsName: string
   adminUrl: string
-  fullProjectName?: string
+  brandName?: string
   siteUrl?: string
 }
 
@@ -25,14 +25,14 @@ function stripScheme(url: string): string {
 }
 
 export function forgotPasswordEmail(options: ForgotPasswordEmailOptions) {
-  const { projectName, adminUrl, fullProjectName, siteUrl } = options
+  const { cmsName, adminUrl, brandName, siteUrl } = options
   const base = adminUrl.replace(/\/$/, '')
-  const footerName = fullProjectName ?? projectName
+  const footerName = brandName ?? cmsName
 
   return {
     generateEmailSubject: (args: ForgotPasswordArgs) => {
-      if (args?.user?.isInvite) return `You've been invited to ${projectName}`
-      return `Reset your ${projectName} password`
+      if (args?.user?.isInvite) return `You've been invited to ${cmsName}`
+      return `Reset your ${cmsName} password`
     },
     generateEmailHTML: (args: ForgotPasswordArgs) => {
       const token = args?.token
@@ -41,11 +41,11 @@ export function forgotPasswordEmail(options: ForgotPasswordEmailOptions) {
       const isInvite = Boolean(user?.isInvite)
       const name = typeof user?.name === 'string' ? user.name.trim() : ''
 
-      const title = isInvite ? `Welcome to ${projectName}` : `Reset your password`
+      const title = isInvite ? `Welcome to ${cmsName}` : `Reset your password`
       const greeting = name ? `Hello, ${escapeHtml(name)}.` : ''
       const intro = isInvite
-        ? `You've been invited to ${projectName}. Click the button below to set your password and sign in.`
-        : `Someone (hopefully you) requested a password reset for your ${projectName} account. Click the button below to choose a new password.`
+        ? `You've been invited to ${cmsName}. Click the button below to set your password and sign in.`
+        : `Someone (hopefully you) requested a password reset for your ${cmsName} account. Click the button below to choose a new password.`
       const buttonText = isInvite ? 'Set your password' : 'Reset password'
       const expiryNote = isInvite
         ? 'This invitation link expires in 7 days.'
