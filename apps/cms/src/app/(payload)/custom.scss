@@ -71,9 +71,16 @@ body.cms-scrolled-down .template-default__wrap > .app-header {
 
 .doc-controls {
     top: var(--app-header-height);
-    transition: top 0.2s ease;
+    background-color: var(--theme-bg);
+    transition: transform 0.2s ease;
+    will-change: transform;
+}
+
+.doc-controls:before,
+.doc-controls:after {
+    display: none;
 }
 
 body.cms-scrolled-down .doc-controls {
-    top: 0;
+    transform: translateY(calc(-1 * var(--app-header-height)));
 }
