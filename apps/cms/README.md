@@ -6,7 +6,7 @@ Not a standalone app. Requires a parent project with `packages/payload-config/` 
 
 ## What's shared here
 
-- `src/components/` — reusable admin UI components (`ArrayRowLabel`, `TextareaWithCounter`, `DraftReviewNavLink`, `RolePublishButton`, etc.)
+- `src/components/` — reusable admin UI components (`ArrayRowLabel`, `TextareaWithCounter`, `ContentReviewNavLink`, `RolePublishButton`, etc.)
 - `src/access/`, `src/fields/`, `src/email/`, `src/features/`, `src/invites/`, `src/plugins/`, `src/previewAuth/` — shared admin behaviour
 - `next.config.mjs` — Next.js + Payload wiring
 - `tsconfig.json` — path aliases for `@cms/*` (this app's `src/*`) and `@payload-config/*` (per-project)
