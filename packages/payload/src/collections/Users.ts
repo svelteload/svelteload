@@ -1,5 +1,5 @@
 import type { CollectionConfig } from 'payload'
-import { isAdmin, isAdminOrSelf } from '@cms/access/roles'
+import { getUserRole, isAdmin, isAdminOrSelf } from '@cms/access/roles'
 import { roleField } from '@cms/fields/roleField'
 import { apiKeyFields } from '@cms/fields/apiKeyFields'
 import { forgotPasswordEmail } from '@cms/email/forgotPasswordEmail'
@@ -14,7 +14,7 @@ export const Users: CollectionConfig = {
     useAsTitle: 'email',
     group: 'Admin',
     defaultColumns: ['email', 'name', 'role', 'updatedAt'],
-    hidden: ({ user }) => !user,
+    hidden: ({ user }) => !user || getUserRole(user) !== 'admin',
     components: {
       views: {
         list: {

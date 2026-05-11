@@ -56,3 +56,24 @@
     border: none;
     transform: translateY(-2px) scale(1.01);
 }
+
+.template-default__wrap > .app-header {
+    position: sticky;
+    top: 0;
+    background-color: var(--theme-bg);
+    transition: transform 0.2s ease;
+    will-change: transform;
+}
+
+body.cms-scrolled-down .template-default__wrap > .app-header {
+    transform: translateY(-100%);
+}
+
+.doc-controls {
+    top: var(--app-header-height);
+    transition: top 0.2s ease;
+}
+
+body.cms-scrolled-down .doc-controls {
+    top: 0;
+}

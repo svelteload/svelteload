@@ -36,6 +36,16 @@ export function payloadAdminPlugin(options: PayloadAdminPluginOptions = {}): Plu
     result = {
       ...result,
       collections: [...(result.collections ?? []), ContentReviewNotes],
+      admin: {
+        ...(result.admin ?? {}),
+        components: {
+          ...(result.admin?.components ?? {}),
+          providers: [
+            ...(result.admin?.components?.providers ?? []),
+            '@cms/components/HeaderScrollBehavior',
+          ],
+        },
+      },
     }
     return result
   }
