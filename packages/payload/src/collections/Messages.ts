@@ -1,5 +1,5 @@
 import type { CollectionConfig } from 'payload'
-import { isAdmin } from '@cms/access/roles'
+import { setAccess, getUserRole } from '@cms/access/roles'
 
 export const Messages: CollectionConfig = {
     slug: 'messages',
@@ -13,16 +13,11 @@ export const Messages: CollectionConfig = {
         defaultColumns: ['email', 'fullName', 'status', 'createdAt'],
         description: 'Contact form submissions. Captured server-side after reCAPTCHA passes.',
         hidden: ({ user }) => {
-            if (!user) return true
-            return (user as { role?: string }).role !== 'admin'
+            const role = getUserRole(user)
+            return role !== 'admin' && role !== 'agent'
         },
     },
-    access: {
-        read: isAdmin,
-        create: () => true,
-        update: isAdmin,
-        delete: isAdmin,
-    },
+    access: { ...setAccess('agent'), create: () => true },
     fields: [
         {
             type: 'row',

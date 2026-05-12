@@ -1,5 +1,5 @@
 import type { CollectionConfig } from 'payload'
-import { isAdminOrEditor } from '@cms/access/roles'
+import { setAccess } from '@cms/access/roles'
 import { projectMeta } from 'project-meta/projectMeta'
 import { BASE_IMAGE_SIZES } from '../imageSizes'
 
@@ -37,12 +37,7 @@ export const Media: CollectionConfig = {
             },
         },
     },
-    access: {
-        read: () => true,
-        create: isAdminOrEditor,
-        update: isAdminOrEditor,
-        delete: isAdminOrEditor,
-    },
+    access: setAccess('editor'),
     fields: [
         {
             name: 'alt',

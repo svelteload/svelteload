@@ -1,5 +1,5 @@
 import type { CollectionConfig } from 'payload'
-import { isAdmin } from '@cms/access/roles'
+import { setAccess } from '@cms/access/roles'
 
 export const AccessLogs: CollectionConfig = {
   slug: 'access-logs',
@@ -9,12 +9,7 @@ export const AccessLogs: CollectionConfig = {
     defaultColumns: ['user', 'eventType', 'createdAt', 'ip'],
     description: 'CMS login and logout history. Read-only; rows are written automatically.',
   },
-  access: {
-    read: isAdmin,
-    create: () => false,
-    update: () => false,
-    delete: isAdmin,
-  },
+  access: { ...setAccess('agent'), create: () => false, update: () => false },
   fields: [
     {
       name: 'user',

@@ -1,15 +1,12 @@
 import type { GlobalConfig } from 'payload'
-import { isAdminOrEditor } from '@cms/access/roles'
+import { setGlobalAccess } from '@cms/access/roles'
 
 export const CompanyInformation: GlobalConfig = {
     slug: 'company-info',
     label: 'Company Information',
     admin: { group: 'Site Configuration' },
     versions: { drafts: true },
-    access: {
-        read: () => true,
-        update: isAdminOrEditor,
-    },
+    access: setGlobalAccess('editor'),
     fields: [
         {
             type: 'tabs',

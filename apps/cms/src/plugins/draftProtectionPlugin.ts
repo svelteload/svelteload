@@ -9,21 +9,19 @@ export const draftProtectionPlugin = (): Plugin => (incomingConfig: Config): Con
         return false
     }
 
-    const blockContributorPublish = async ({ args, operation, req }: any) => {
-        if (
-            req.user &&
-            getUserRole(req.user) === 'contributor' &&
-            (operation === 'update' || operation === 'create') &&
-            args?.data?._status === 'published'
-        ) {
-            throw new APIError(
-                'Contributors can only save drafts — publishing is not allowed.',
-                403,
-                undefined,
-                true,
-            )
-        }
-        return args
+    const blockDraftOnlyPublish = async ({ args, operation, req }: any) => {
+        if (!req.user) return args
+        const role = getUserRole(req.user)
+        if (role !== 'contributor' && role !== 'agent') return args
+        if (operation !== 'update' && operation !== 'create') return args
+        if (args?.data?._status !== 'published') return args
+        const label = role === 'agent' ? 'Agents' : 'Contributors'
+        throw new APIError(
+            `${label} can only save drafts, publishing is not allowed.`,
+            403,
+            undefined,
+            true,
+        )
     }
 
     const publishButtonPath = '@cms/components/RolePublishButton#default'
@@ -47,7 +45,7 @@ export const draftProtectionPlugin = (): Plugin => (incomingConfig: Config): Con
                 hooks: {
                     ...collection.hooks,
                     beforeOperation: [
-                        blockContributorPublish,
+                        blockDraftOnlyPublish,
                         ...(collection.hooks?.beforeOperation ?? []),
                     ],
                 },
@@ -70,7 +68,7 @@ export const draftProtectionPlugin = (): Plugin => (incomingConfig: Config): Con
                 hooks: {
                     ...global.hooks,
                     beforeOperation: [
-                        blockContributorPublish,
+                        blockDraftOnlyPublish,
                         ...(global.hooks?.beforeOperation ?? []),
                     ],
                 },

@@ -1,14 +1,11 @@
 import type { GlobalConfig } from 'payload'
-import { isAdminOrEditor } from '@cms/access/roles'
+import { setGlobalAccess } from '@cms/access/roles'
 
 export const UrlRedirects: GlobalConfig = {
     slug: 'url-redirects',
     label: 'URL Redirects',
     admin: { group: 'Navigation' },
-    access: {
-        read: () => true,
-        update: isAdminOrEditor,
-    },
+    access: setGlobalAccess('editor'),
     fields: [
         {
             name: 'redirects',

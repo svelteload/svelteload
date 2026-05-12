@@ -1,5 +1,7 @@
 import type { Config, Plugin, CollectionConfig, Field } from 'payload'
-import { isAdminFieldAccess } from '@cms/access/roles'
+import { minRoleField, getUserRole } from '@cms/access/roles'
+
+const adminField = minRoleField('admin')
 import { inviteUserEndpoint } from './endpoint'
 import { resendInviteEndpoint } from './resendEndpoint'
 
@@ -17,12 +19,12 @@ export const invitesPlugin = (): Plugin => (incomingConfig: Config): Config => {
       description:
         'Automatically unchecks the first time this user signs in. If still checked, they have not accepted their invitation.',
       condition: (_data, _siblingData, { user }) =>
-        Boolean(user && (user as { role?: string }).role === 'admin'),
+        getUserRole(user) === 'admin',
     },
     access: {
-      read: isAdminFieldAccess,
-      create: isAdminFieldAccess,
-      update: isAdminFieldAccess,
+      read: adminField,
+      create: adminField,
+      update: adminField,
     },
   }
 
@@ -31,11 +33,7 @@ export const invitesPlugin = (): Plugin => (incomingConfig: Config): Config => {
     type: 'ui',
     admin: {
       condition: (data, _siblingData, { user }) =>
-        Boolean(
-          data?.isInvite &&
-            user &&
-            (user as { role?: string }).role === 'admin',
-        ),
+        Boolean(data?.isInvite) && getUserRole(user) === 'admin',
       components: {
         Field: '@cms/invites/ResendInviteButton',
       },

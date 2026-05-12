@@ -1,15 +1,12 @@
 import type { GlobalConfig } from 'payload'
-import { isAdminOrEditor } from '@cms/access/roles'
+import { setGlobalAccess } from '@cms/access/roles'
 
 export const ContactForm: GlobalConfig = {
     slug: 'contact-form',
     label: 'Contact Form',
     admin: { group: 'Site Configuration' },
     versions: { drafts: true },
-    access: {
-        read: () => true,
-        update: isAdminOrEditor,
-    },
+    access: setGlobalAccess('editor'),
     fields: [
         {
             type: 'tabs',

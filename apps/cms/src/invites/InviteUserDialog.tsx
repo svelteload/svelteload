@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-type Role = 'admin' | 'editor' | 'contributor'
+type Role = 'admin' | 'agent' | 'editor' | 'contributor' | 'reader'
 
 interface Props {
   onClose: () => void
@@ -22,7 +22,7 @@ type RowStatus =
   | { kind: 'sent' }
   | { kind: 'failed'; error: string }
 
-const ROLE_VALUES: Role[] = ['admin', 'editor', 'contributor']
+const ROLE_VALUES: Role[] = ['admin', 'agent', 'editor', 'contributor', 'reader']
 
 export function InviteUserDialog({ onClose }: Props) {
   const router = useRouter()
@@ -181,9 +181,11 @@ export function InviteUserDialog({ onClose }: Props) {
                 onChange={(e) => setRole(e.target.value as Role)}
                 style={inputStyle}
               >
-                <option value="editor">Editor — content, can publish</option>
-                <option value="contributor">Contributor — content, drafts only</option>
-                <option value="admin">Admin — full access</option>
+                <option value="admin">Admin, full access</option>
+                <option value="agent">Agent, reads all, drafts only (MCP)</option>
+                <option value="editor">Editor, content, can publish</option>
+                <option value="contributor">Contributor, content, drafts only</option>
+                <option value="reader">Reader, read-only on content</option>
               </select>
             </label>
 

@@ -1,5 +1,7 @@
 import type { Config, Plugin, CollectionConfig, Field } from 'payload'
-import { isAdminFieldAccess } from '@cms/access/roles'
+import { minRoleField } from '@cms/access/roles'
+
+const agentField = minRoleField('agent')
 import { previewUrlEndpoint } from './previewUrlEndpoint'
 
 export const previewAuthPlugin = (): Plugin => (incomingConfig: Config): Config => {
@@ -20,7 +22,7 @@ export const previewAuthPlugin = (): Plugin => (incomingConfig: Config): Config 
       description: 'Recent CMS login/logout events for this user.',
     },
     access: {
-      read: isAdminFieldAccess,
+      read: agentField,
     },
   }
 
@@ -34,7 +36,7 @@ export const previewAuthPlugin = (): Plugin => (incomingConfig: Config): Config 
       description: 'Active and historical preview tokens for this user.',
     },
     access: {
-      read: isAdminFieldAccess,
+      read: agentField,
     },
   }
 

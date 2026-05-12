@@ -1,5 +1,5 @@
 import type { CollectionConfig } from 'payload'
-import { getUserRole, isAdmin, isAdminOrSelf } from '@cms/access/roles'
+import { getUserRole, minRole, adminOrSelf } from '@cms/access/roles'
 import { roleField } from '@cms/fields/roleField'
 import { apiKeyFields } from '@cms/fields/apiKeyFields'
 import { forgotPasswordEmail } from '@cms/email/forgotPasswordEmail'
@@ -14,7 +14,10 @@ export const Users: CollectionConfig = {
     useAsTitle: 'email',
     group: 'Admin',
     defaultColumns: ['email', 'name', 'role', 'updatedAt'],
-    hidden: ({ user }) => !user || getUserRole(user) !== 'admin',
+    hidden: ({ user }) => {
+      const role = getUserRole(user)
+      return role !== 'admin' && role !== 'agent'
+    },
     components: {
       views: {
         list: {
@@ -24,10 +27,10 @@ export const Users: CollectionConfig = {
     },
   },
   access: {
-    read: isAdminOrSelf,
-    create: isAdmin,
-    update: isAdminOrSelf,
-    delete: isAdmin,
+    read: adminOrSelf,
+    create: minRole('admin'),
+    update: adminOrSelf,
+    delete: minRole('admin'),
   },
   auth: {
     useAPIKey: true,

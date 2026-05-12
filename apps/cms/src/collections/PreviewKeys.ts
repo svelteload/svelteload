@@ -1,5 +1,5 @@
 import type { CollectionConfig } from 'payload'
-import { isAdmin } from '@cms/access/roles'
+import { setAccess } from '@cms/access/roles'
 
 export const PreviewKeys: CollectionConfig = {
   slug: 'preview-keys',
@@ -9,12 +9,7 @@ export const PreviewKeys: CollectionConfig = {
     defaultColumns: ['user', 'createdAt', 'expiresAt', 'revoked'],
     description: 'Shareable preview tokens. Each token grants access to preview.<client>.com for its lifetime. Revoking or deleting a token immediately cuts off access.',
   },
-  access: {
-    read: isAdmin,
-    create: isAdmin,
-    update: isAdmin,
-    delete: isAdmin,
-  },
+  access: setAccess('agent'),
   fields: [
     {
       name: 'token',

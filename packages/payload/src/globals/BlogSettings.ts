@@ -1,5 +1,5 @@
 import type { CollectionConfig, GlobalConfig } from 'payload'
-import { isAdminOrEditor } from '@cms/access/roles'
+import { setGlobalAccess } from '@cms/access/roles'
 
 export function buildBlogSettings(siblings: CollectionConfig[] = []): GlobalConfig {
     const hasTags = siblings.some((c) => c?.slug === 'tags')
@@ -23,10 +23,7 @@ export function buildBlogSettings(siblings: CollectionConfig[] = []): GlobalConf
             custom: { requiresPageType: 'blog' },
         },
         versions: { drafts: true },
-        access: {
-            read: () => true,
-            update: isAdminOrEditor,
-        },
+        access: setGlobalAccess('editor'),
         fields: [
             {
                 label: 'Post Page Headings',

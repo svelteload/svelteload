@@ -1,17 +1,12 @@
 import type { CollectionConfig } from 'payload'
-import { isAdmin } from '@cms/access/roles'
+import { setAccess } from '@cms/access/roles'
 
 export const ContentReviewNotes: CollectionConfig = {
   slug: 'content-review-notes',
   admin: {
     hidden: true,
   },
-  access: {
-    read: isAdmin,
-    create: isAdmin,
-    update: isAdmin,
-    delete: isAdmin,
-  },
+  access: setAccess('agent'),
   fields: [
     {
       name: 'key',

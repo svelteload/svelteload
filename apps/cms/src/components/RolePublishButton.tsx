@@ -6,6 +6,7 @@ import { getUserRole } from '@cms/access/roles'
 
 export default function RolePublishButton() {
   const { user } = useAuth()
-  if (getUserRole(user) === 'contributor') return null
+  const role = getUserRole(user)
+  if (role === 'contributor' || role === 'agent') return null
   return <PublishButton />
 }

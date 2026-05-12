@@ -1,25 +1,61 @@
-import type { Access, FieldAccess } from 'payload'
+import type { Access, FieldAccess, CollectionConfig, GlobalConfig } from 'payload'
 
-export type UserRole = 'admin' | 'editor' | 'contributor'
+export type UserRole = 'admin' | 'agent' | 'editor' | 'contributor' | 'reader'
 
-export function getUserRole(user: unknown): UserRole {
-  if (user && typeof user === 'object' && 'role' in user) {
-    const role = (user as { role?: unknown }).role
-    if (role === 'editor') return 'editor'
-    if (role === 'contributor') return 'contributor'
-  }
-  return 'admin'
+const ROLE_ORDER: UserRole[] = ['reader', 'contributor', 'editor', 'agent', 'admin']
+
+export function getUserRole(user: unknown): UserRole | null {
+  if (!user || typeof user !== 'object' || !('role' in user)) return null
+  const role = (user as { role?: unknown }).role
+  if (typeof role !== 'string') return null
+  return (ROLE_ORDER as string[]).includes(role) ? (role as UserRole) : null
 }
 
-export const isAdmin: Access = ({ req }) => getUserRole(req.user) === 'admin'
+const rank = (role: UserRole | null): number =>
+  role === null ? -1 : ROLE_ORDER.indexOf(role)
 
-export const isAdminOrEditor: Access = ({ req }) => Boolean(req.user)
+export const minRole = (min: UserRole): Access => ({ req }) =>
+  rank(getUserRole(req.user)) >= rank(min)
 
-export const isAdminOrSelf: Access = ({ req, id }) => {
+export const minRoleField = (min: UserRole): FieldAccess => ({ req }) =>
+  rank(getUserRole(req.user)) >= rank(min)
+
+type Tier = 'editor' | 'agent' | 'admin'
+
+const COLLECTION_TIERS: Record<Tier, NonNullable<CollectionConfig['access']>> = {
+  editor: {
+    read: () => true,
+    create: minRole('contributor'),
+    update: minRole('contributor'),
+    delete: minRole('contributor'),
+  },
+  agent: {
+    read: minRole('agent'),
+    create: minRole('admin'),
+    update: minRole('admin'),
+    delete: minRole('admin'),
+  },
+  admin: {
+    read: minRole('admin'),
+    create: minRole('admin'),
+    update: minRole('admin'),
+    delete: minRole('admin'),
+  },
+}
+
+const GLOBAL_TIERS: Record<Tier, NonNullable<GlobalConfig['access']>> = {
+  editor: { read: () => true,        update: minRole('contributor') },
+  agent:  { read: minRole('agent'),  update: minRole('admin') },
+  admin:  { read: minRole('admin'),  update: minRole('admin') },
+}
+
+export const setAccess = (tier: Tier) => COLLECTION_TIERS[tier]
+export const setGlobalAccess = (tier: Tier) => GLOBAL_TIERS[tier]
+
+export const adminOrSelf: Access = ({ req, id }) => {
   if (!req.user) return false
-  if (getUserRole(req.user) === 'admin') return true
+  const role = getUserRole(req.user)
+  if (role === 'admin' || role === 'agent') return true
   if (id && req.user.id === id) return true
   return { id: { equals: req.user.id } }
 }
-
-export const isAdminFieldAccess: FieldAccess = ({ req }) => getUserRole(req.user) === 'admin'

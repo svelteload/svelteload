@@ -1,5 +1,5 @@
 import type { GlobalConfig } from 'payload'
-import { isAdmin } from '@cms/access/roles'
+import { minRole, getUserRole } from '@cms/access/roles'
 
 const COMMON_KEYS = [
     'search_open',
@@ -21,6 +21,7 @@ const COMMON_KEYS = [
     'no_posts',
     'done',
     'clear',
+    'edit_draft',
 ] as const
 
 type CommonKey = typeof COMMON_KEYS[number]
@@ -40,13 +41,13 @@ export const Translations: GlobalConfig = {
     admin: {
         group: 'Site Configuration',
         description: 'Shared UI strings reused across the site. Admin-only because removing a key here breaks every component that reads it. The Common section covers strings every site needs; add anything project-specific to Custom.',
-        hidden: ({ user }) => !user || (user as { role?: string }).role !== 'admin',
+        hidden: ({ user }) => {
+            const role = getUserRole(user)
+            return role !== 'admin' && role !== 'agent'
+        },
     },
     versions: { drafts: true },
-    access: {
-        read: () => true,
-        update: isAdmin,
-    },
+    access: { read: () => true, update: minRole('agent') },
     fields: [
         {
             label: 'Common',
@@ -73,6 +74,7 @@ export const Translations: GlobalConfig = {
                 commonField('no_posts', 'No Posts Found'),
                 commonField('done', 'Done'),
                 commonField('clear', 'Clear'),
+                commonField('edit_draft', 'Edit Draft Button', 'Live-preview button that opens the current draft in the CMS edit view.'),
             ],
         },
         {

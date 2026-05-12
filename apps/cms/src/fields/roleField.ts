@@ -1,5 +1,5 @@
 import type { Field } from 'payload'
-import { isAdminFieldAccess } from '@cms/access/roles'
+import { minRoleField } from '@cms/access/roles'
 
 export const roleField: Field = {
   name: 'role',
@@ -8,16 +8,18 @@ export const roleField: Field = {
   defaultValue: 'editor',
   options: [
     { label: 'Admin', value: 'admin' },
+    { label: 'Agent', value: 'agent' },
     { label: 'Editor', value: 'editor' },
     { label: 'Contributor', value: 'contributor' },
+    { label: 'Reader', value: 'reader' },
   ],
   access: {
-    create: isAdminFieldAccess,
-    update: isAdminFieldAccess,
+    create: minRoleField('admin'),
+    update: minRoleField('admin'),
   },
   admin: {
     position: 'sidebar',
     description:
-      'Admin: full access. Editor: content only, can publish. Contributor: content only, drafts only (cannot publish).',
+      'Admin: full access. Agent: reads everything an admin can but only saves drafts (intended for the MCP API key user). Editor: content, can publish. Contributor: content, drafts only. Reader: read-only on content, no writes anywhere.',
   },
 }

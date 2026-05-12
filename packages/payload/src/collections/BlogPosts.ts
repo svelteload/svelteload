@@ -1,5 +1,5 @@
 import type { CollectionConfig } from 'payload'
-import { isAdminOrEditor } from '@cms/access/roles'
+import { setAccess } from '@cms/access/roles'
 import { generateSlugFromName } from '../utils/generateSlugFromName'
 import { cleanLexicalContent, extractPlainTextFromLexical } from '../utils/extractPlainTextFromLexical'
 import { buildLandingBoundPathsHook } from '../utils/buildLandingBoundPathsHook'
@@ -106,12 +106,7 @@ function _buildBlogPostsBase(): CollectionConfig {
     versions: {
         drafts: true,
     },
-    access: {
-        read: () => true,
-        create: isAdminOrEditor,
-        update: isAdminOrEditor,
-        delete: isAdminOrEditor,
-    },
+    access: setAccess('editor'),
     fields: [
         {
             name: 'content',
