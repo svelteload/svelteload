@@ -29,7 +29,7 @@ try {
   }
 } catch {}
 
-const PAYLOAD_URL = process.env.PAYLOAD_URL || 'http://localhost:3000'
+const PAYLOAD_URL = process.env.PUBLIC_PAYLOAD_ADMIN_URL || 'http://localhost:3000'
 const PAYLOAD_API_KEY = process.env.PAYLOAD_API_KEY || ''
 
 if (!PAYLOAD_API_KEY) {

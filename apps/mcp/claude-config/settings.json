@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "payload-cms": {
-      "command": "cmd",
-      "args": ["/c", "npx", "tsx", "src/index.ts"],
-      "cwd": "svelteload/apps/mcp"
-    }
-  }
-}
