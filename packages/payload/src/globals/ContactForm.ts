@@ -319,6 +319,16 @@ export const ContactForm: GlobalConfig = {
                             ],
                         },
                         {
+                            name: 'recaptchaNotice',
+                            type: 'text',
+                            label: 'reCAPTCHA Notice',
+                            defaultValue: 'This site is protected by reCAPTCHA.',
+                            localized: true,
+                            admin: {
+                                description: 'Visible attribution shown when the reCAPTCHA badge is hidden. The word "reCAPTCHA" must remain as-is (Google trademark) in every locale. As of 2 April 2026 the notice must not link to Google\'s Privacy Policy or Terms. The frontend appends a link to the site\'s privacy-policy page (resolved from the page with pageType "privacy-policy").',
+                            },
+                        },
+                        {
                             name: 'notifications',
                             type: 'group',
                             fields: [
