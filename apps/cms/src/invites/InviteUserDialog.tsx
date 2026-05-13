@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 
 type Role = 'admin' | 'agent' | 'editor' | 'contributor' | 'reader'
@@ -127,7 +128,9 @@ export function InviteUserDialog({ onClose }: Props) {
 
   const validCount = bulkStatus.filter((s) => s.kind !== 'invalid').length
 
-  return (
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <div onClick={() => !bulkSending && onClose()} style={overlayStyle}>
       <div
         onClick={(e) => e.stopPropagation()}
@@ -279,7 +282,8 @@ export function InviteUserDialog({ onClose }: Props) {
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
