@@ -1,3 +1,4 @@
+import { projectMeta } from 'project-meta/projectMeta'
 import { getPayloadInstance } from './payload'
 
 const CACHE_TTL_MS = 30 * 1000
@@ -51,5 +52,6 @@ export async function validatePreviewToken(token: string): Promise<{ valid: true
   return { valid: true, expiresAt: new Date(expiresAt) }
 }
 
-export const PREVIEW_COOKIE_NAME = 'preview_access'
+const previewCookiePrefix = (projectMeta as { cookiePrefix?: string }).cookiePrefix
+export const PREVIEW_COOKIE_NAME = previewCookiePrefix ? `${previewCookiePrefix}-preview-token` : 'preview-token'
 export const PREVIEW_QUERY_PARAM = 'preview_key'
