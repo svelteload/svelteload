@@ -14,10 +14,25 @@ export interface PayloadAdminPluginOptions {
     fromName: string
   } | false
   invites?: boolean
+  /**
+   * Extra collection slugs to exclude from the Quick Switcher hover-list nav.
+   * Merged with a built-in list of collections shared across all svelteload
+   * projects that don't benefit from a flat name-only switcher.
+   */
+  docSwitcherExclude?: string[]
 }
 
+const DOC_SWITCHER_BASE_EXCLUDE = [
+  'messages',
+  'preview-keys',
+  'access-logs',
+  'media',
+  'content-review-notes',
+]
+
 export function payloadAdminPlugin(options: PayloadAdminPluginOptions = {}): Plugin {
-  const { search = true, searchSkipKeys, email, invites = true } = options
+  const { search = true, searchSkipKeys, email, invites = true, docSwitcherExclude = [] } = options
+  const excludedSlugs = Array.from(new Set([...DOC_SWITCHER_BASE_EXCLUDE, ...docSwitcherExclude]))
   return async (config: Config): Promise<Config> => {
     let result = await draftProtectionPlugin()(config)
     if (search) {
@@ -43,6 +58,13 @@ export function payloadAdminPlugin(options: PayloadAdminPluginOptions = {}): Plu
           providers: [
             ...(result.admin?.components?.providers ?? []),
             '@cms/components/HeaderScrollBehavior',
+          ],
+          beforeNavLinks: [
+            ...(result.admin?.components?.beforeNavLinks ?? []),
+            {
+              path: '@cms/components/DocumentSwitcher',
+              clientProps: { excludedSlugs },
+            },
           ],
         },
       },
