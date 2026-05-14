@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 const REVEAL_AT_TOP = 16
 const HIDE_AFTER_SCROLL = 120
 const DELTA = 6
+const STABLE_FRAMES_NEEDED = 4
 
 export default function HeaderScrollBehavior({ children }: { children?: ReactNode }) {
   const searchParams = useSearchParams()
@@ -67,18 +68,24 @@ export default function HeaderScrollBehavior({ children }: { children?: ReactNod
     const targetY = savedScrollY.current
     savedScrollY.current = null
 
-    const start = performance.now()
-    let frameId = 0
     let cancelled = false
+    let frameId = 0
+    let stableFrames = 0
+    let lastHeight = -1
 
     const attempt = () => {
       if (cancelled) return
-      const maxScroll = document.documentElement.scrollHeight - window.innerHeight
-      if (maxScroll >= targetY - 1) {
-        window.scrollTo(0, targetY)
+      const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
+      if (maxScroll === lastHeight) {
+        stableFrames++
+      } else {
+        stableFrames = 0
+        lastHeight = maxScroll
+      }
+      if (stableFrames >= STABLE_FRAMES_NEEDED) {
+        window.scrollTo(0, Math.min(targetY, maxScroll))
         return
       }
-      if (performance.now() - start > 1500) return
       frameId = window.requestAnimationFrame(attempt)
     }
 
