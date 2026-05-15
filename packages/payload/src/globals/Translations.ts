@@ -22,15 +22,16 @@ const COMMON_KEYS = [
     'done',
     'clear',
     'edit_draft',
+    'powered_by',
 ] as const
 
 type CommonKey = typeof COMMON_KEYS[number]
 
-const commonField = (name: CommonKey, label: string, description?: string) => ({
+const commonField = (name: CommonKey, label: string, description?: string, opts: { required?: boolean } = {}) => ({
     name,
     type: 'text' as const,
     label,
-    required: true,
+    required: opts.required ?? true,
     localized: true,
     ...(description ? { admin: { description } } : {}),
 })
@@ -75,6 +76,7 @@ export const Translations: GlobalConfig = {
                 commonField('done', 'Done'),
                 commonField('clear', 'Clear'),
                 commonField('edit_draft', 'Edit Draft Button', 'Live-preview button that opens the current draft in the CMS edit view.'),
+                commonField('powered_by', 'Powered By Line', 'Optional footer attribution, e.g. "Powered by Nodebrush". Leave blank to hide.', { required: false }),
             ],
         },
         {
