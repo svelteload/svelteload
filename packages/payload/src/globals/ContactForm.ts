@@ -215,7 +215,7 @@ export const ContactForm: GlobalConfig = {
                                         {
                                             name: 'company',
                                             type: 'text',
-                                            defaultValue: 'Company (Optional)',
+                                            defaultValue: 'Company',
                                             localized: true,
                                             admin: { width: '50%' },
                                         },
@@ -234,7 +234,7 @@ export const ContactForm: GlobalConfig = {
                                         {
                                             name: 'phoneNumber',
                                             type: 'text',
-                                            defaultValue: 'Phone Number (Optional)',
+                                            defaultValue: 'Phone Number',
                                             localized: true,
                                             admin: {
                                                 width: '50%',
@@ -276,7 +276,7 @@ export const ContactForm: GlobalConfig = {
                                     name: 'header',
                                     type: 'text',
                                     label: 'Header',
-                                    defaultValue: 'Attach files (optional)',
+                                    defaultValue: 'Attach files',
                                     localized: true,
                                 },
                                 {
