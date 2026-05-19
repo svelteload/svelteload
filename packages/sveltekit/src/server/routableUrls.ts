@@ -71,12 +71,13 @@ export async function resolveUrlToDoc(
 
     let lang: string | null = null
     let normalizedPath = pathname
-    if (localization) {
+    if (localization && localization.locales.length > 1) {
         const stripped = stripLocalePrefix(pathname, localization.locales)
         lang = stripped.lang
         normalizedPath = stripped.path
     }
 
+    const lookupLocale = lang ?? localization?.defaultLocale ?? null
     const findOpts = (locale: string | null) =>
         locale ? { locale: locale as any } : {}
 
@@ -87,7 +88,7 @@ export async function resolveUrlToDoc(
         limit: 1,
         draft: true,
         overrideAccess: true,
-        ...findOpts(lang),
+        ...findOpts(lookupLocale),
     })
     const pageDoc = pageResult.docs[0] as { id?: string | number; pageType?: string } | undefined
     if (pageDoc?.id != null && pageDoc.pageType !== '404') {
@@ -102,7 +103,7 @@ export async function resolveUrlToDoc(
             limit: 1,
             draft: true,
             overrideAccess: true,
-            ...findOpts(lang),
+            ...findOpts(lookupLocale),
         })
         const landingDoc = landingResult.docs[0] as { path?: string } | undefined
         const landingPath = landingDoc?.path
@@ -121,7 +122,7 @@ export async function resolveUrlToDoc(
             limit: 1,
             draft: true,
             overrideAccess: true,
-            ...findOpts(lang),
+            ...findOpts(lookupLocale),
         })
         const doc = docResult.docs[0] as { id?: string | number } | undefined
         if (doc?.id != null) {

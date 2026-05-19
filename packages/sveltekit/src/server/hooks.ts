@@ -191,29 +191,33 @@ export const handle: Handle = async ({ event, resolve }) => {
     const localeConfig = getLocaleConfig()
     let currentLang: string | null = null
 
-    if (localeConfig && !isLocaleBypassPath(url.pathname)) {
+    if (localeConfig) {
         const { locales, defaultLocale } = localeConfig
-        const langMatch = /^\/([a-z]{2})(\/|$)/.exec(url.pathname)
-        currentLang = langMatch ? langMatch[1] : null
+        if (locales.length > 1 && !isLocaleBypassPath(url.pathname)) {
+            const langMatch = /^\/([a-z]{2})(\/|$)/.exec(url.pathname)
+            currentLang = langMatch ? langMatch[1] : null
 
-        if (!currentLang || !locales.includes(currentLang)) {
-            const cookies = parse(request.headers.get('cookie') || '')
-            let detectedLang = cookies['lang']
+            if (!currentLang || !locales.includes(currentLang)) {
+                const cookies = parse(request.headers.get('cookie') || '')
+                let detectedLang = cookies['lang']
 
-            if (!detectedLang || !locales.includes(detectedLang)) {
-                const acceptLang = request.headers.get('accept-language')
-                const browserLangs = acceptLang
-                    ? acceptLang.split(',').map(l => l.split('-')[0].split(';')[0].trim())
-                    : []
-                detectedLang = browserLangs.find(l => locales.includes(l)) || defaultLocale
+                if (!detectedLang || !locales.includes(detectedLang)) {
+                    const acceptLang = request.headers.get('accept-language')
+                    const browserLangs = acceptLang
+                        ? acceptLang.split(',').map(l => l.split('-')[0].split(';')[0].trim())
+                        : []
+                    detectedLang = browserLangs.find(l => locales.includes(l)) || defaultLocale
+                }
+
+                const pathWithoutLang = currentLang ? url.pathname.replace(`/${currentLang}`, '') : url.pathname
+                const newPath = `/${detectedLang}${pathWithoutLang === '/' ? '' : pathWithoutLang}`
+                return new Response(null, {
+                    status: 302,
+                    headers: { Location: newPath + url.search },
+                })
             }
-
-            const pathWithoutLang = currentLang ? url.pathname.replace(`/${currentLang}`, '') : url.pathname
-            const newPath = `/${detectedLang}${pathWithoutLang === '/' ? '' : pathWithoutLang}`
-            return new Response(null, {
-                status: 302,
-                headers: { Location: newPath + url.search },
-            })
+        } else {
+            currentLang = defaultLocale
         }
     }
 

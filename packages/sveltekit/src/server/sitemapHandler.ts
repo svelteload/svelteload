@@ -57,7 +57,7 @@ export const GET: RequestHandler = async () => {
     const localization = getLocalizationConfig(payload)
     const docs = await enumerateRoutableDocs(payload, projectMeta)
 
-    if (localization) {
+    if (localization && localization.locales.length > 1) {
         const { defaultLocale } = localization
         const urls: LocalizedEntry[] = []
 

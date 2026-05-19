@@ -191,10 +191,7 @@ export const ContactForm: GlobalConfig = {
                                     type: 'text',
                                     label: 'Contact Prompt',
                                     defaultValue: "Let's Talk",
-                                    localized: true,
-                                    admin: {
-                                        description: 'Prompt shown alongside the subject options on multi-choice forms. Unused if the form uses a free-text subject input.',
-                                    },
+                                    localized: true
                                 },
                             ],
                         },

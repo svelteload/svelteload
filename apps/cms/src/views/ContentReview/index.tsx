@@ -136,6 +136,8 @@ function DocumentCard({
   const missingCount = doc.fields.filter((f) => f.isMissing).length
   const warningCount = doc.fields.filter((f) => f.isWarning && !f.isMissing).length
 
+  const displayLocales = localeA === localeB ? [localeA] : [localeA, localeB]
+
   return (
     <div
       style={{
@@ -371,8 +373,14 @@ function DocumentCard({
           <thead>
             <tr style={{ background: 'var(--theme-elevation-25, #161616)' }}>
               <th style={{ ...thStyle, width: '180px' }}>Field</th>
-              <th style={thStyle}>{localeA.toUpperCase()}</th>
-              <th style={{ ...thStyle, borderRight: 'none' }}>{localeB.toUpperCase()}</th>
+              {displayLocales.map((locale, i) => (
+                <th
+                  key={locale}
+                  style={i === displayLocales.length - 1 ? { ...thStyle, borderRight: 'none' } : thStyle}
+                >
+                  {locale.toUpperCase()}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -381,7 +389,7 @@ function DocumentCard({
               const isMarked = markedFields.has(fieldKey)
               const aVal = field.values[localeA] ?? ''
               const bVal = field.values[localeB] ?? ''
-              const same = aVal === bVal && !field.isMissing
+              const same = displayLocales.length > 1 && aVal === bVal && !field.isMissing
 
               let rowClass = 'cr-row'
               if (isMarked) rowClass += ' cr-row-marked'
@@ -428,7 +436,7 @@ function DocumentCard({
 
                   {field.singleValue !== undefined ? (
                     <td
-                      colSpan={2}
+                      colSpan={displayLocales.length}
                       style={{
                         ...tdStyle,
                         borderRight: 'none',
@@ -441,13 +449,13 @@ function DocumentCard({
                     </td>
                   ) : (
                     <>
-                      {[localeA, localeB].map((locale, colIdx) => {
+                      {displayLocales.map((locale, colIdx) => {
                         const val = field.values[locale] ?? ''
                         const editKey = `${locale}:::${field.path}`
                         const editedVal = currentEdits[editKey]
                         const displayVal = editedVal !== undefined ? editedVal : val
                         const canEdit = fieldIsEditable(field.path) && field.fieldType !== undefined && field.path !== 'localizedPaths'
-                        const isLastCol = colIdx === 1
+                        const isLastCol = colIdx === displayLocales.length - 1
 
                         if (canEdit) {
                           const editDefault = editedVal !== undefined
@@ -907,7 +915,7 @@ export function ContentReviewList({ documents, localeCodes, initialNotes }: Prop
 
         <span style={{ marginLeft: 'auto', fontSize: '13px', color: 'var(--theme-elevation-400)' }}>
           {visibleDocs.length}{filterKey === 'new' && visibleDocs.length !== displayDocs.length ? `/${displayDocs.length}` : ''} doc{visibleDocs.length !== 1 ? 's' : ''}
-          {!showLocaleSelectors && ` · ${localeA.toUpperCase()} vs ${localeB.toUpperCase()}`}
+          {!showLocaleSelectors && localeA !== localeB && ` · ${localeA.toUpperCase()} vs ${localeB.toUpperCase()}`}
         </span>
       </div>
 
