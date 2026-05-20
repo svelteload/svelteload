@@ -43,11 +43,16 @@ const writeCached = (types: Set<string>): void => {
 export default function RequiresPageTypeNavFilter() {
     const { config } = useConfig() as any
     const targets = useMemo(() => collectHideTargets(config), [config])
-    const [presentTypes, setPresentTypes] = useState<Set<string> | null>(() => readCached())
+    const [presentTypes, setPresentTypes] = useState<Set<string> | null>(null)
 
     useEffect(() => {
         if (targets.length === 0) return
         if (presentTypes !== null) return
+        const cached = readCached()
+        if (cached !== null) {
+            setPresentTypes(cached)
+            return
+        }
         let cancelled = false
         fetch('/api/pages?where[pageType][exists]=true&depth=0&limit=100', { credentials: 'include' })
             .then((r) => (r.ok ? r.json() : { docs: [] }))
