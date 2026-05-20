@@ -53,6 +53,19 @@ async function verifyRecaptcha(token: string): Promise<boolean> {
     }
 }
 
+function isValidEmail(email: string): boolean {
+    if (!email || typeof email !== 'string') return false
+    if (email.length > 254) return false
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false
+    if (email.includes('..')) return false
+    const atIndex = email.indexOf('@')
+    const local = email.slice(0, atIndex)
+    const domain = email.slice(atIndex + 1)
+    if (local.startsWith('.') || local.endsWith('.')) return false
+    if (domain.startsWith('.') || domain.endsWith('.')) return false
+    return true
+}
+
 async function sendDiscordNotification(title: string, message: string, color: number): Promise<void> {
     if (!DISCORD_WEBHOOK_URL) return
     try {
@@ -248,20 +261,27 @@ export const POST: RequestHandler = async ({ request }) => {
         const attachmentFilenames = attachments.map((a) => a.filename).join(', ')
         const attachmentCount = attachments.length
 
-        if (form.recaptchaToken && RECAPTCHA_SITE_KEY) {
-            const ok = await verifyRecaptcha(form.recaptchaToken)
+        if (RECAPTCHA_SITE_KEY) {
+            const ok = form.recaptchaToken ? await verifyRecaptcha(form.recaptchaToken) : false
             if (!ok) {
                 const ctx = formatContactContext(form, request.headers.get('user-agent'))
                 sendDiscordNotification(
-                    'reCAPTCHA Verification Failed',
-                    `User failed reCAPTCHA verification.\n\n${ctx}`,
+                    'Spam Blocked (reCAPTCHA)',
+                    `Submission rejected. Token ${form.recaptchaToken ? 'failed verification' : 'was missing'}.\n\n${ctx}`,
                     0xFF6C00,
                 ).catch(console.error)
                 return new Response(
-                    JSON.stringify({ error: 'reCAPTCHA verification failed' }),
+                    JSON.stringify({ error: 'recaptcha_failed' }),
                     { status: 400, headers: { 'Content-Type': 'application/json' } },
                 )
             }
+        }
+
+        if (!isValidEmail(form.email)) {
+            return new Response(
+                JSON.stringify({ error: 'invalid_email' }),
+                { status: 400, headers: { 'Content-Type': 'application/json' } },
+            )
         }
 
         try {

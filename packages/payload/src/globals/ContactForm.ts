@@ -367,6 +367,15 @@ export const ContactForm: GlobalConfig = {
                                         },
                                     ],
                                 },
+                                {
+                                    name: 'invalidEmail',
+                                    type: 'text',
+                                    defaultValue: 'Please enter a valid email address.',
+                                    localized: true,
+                                    admin: {
+                                        description: 'Shown when the submitted email address is malformed (e.g. typos, double dots, missing domain). The form keeps the entered values so the visitor can correct just the email field.',
+                                    },
+                                },
                             ],
                         },
                     ],
