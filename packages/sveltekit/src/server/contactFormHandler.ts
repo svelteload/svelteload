@@ -264,12 +264,6 @@ export const POST: RequestHandler = async ({ request }) => {
         if (RECAPTCHA_SITE_KEY) {
             const ok = form.recaptchaToken ? await verifyRecaptcha(form.recaptchaToken) : false
             if (!ok) {
-                const ctx = formatContactContext(form, request.headers.get('user-agent'))
-                sendDiscordNotification(
-                    'Spam Blocked (reCAPTCHA)',
-                    `Submission rejected. Token ${form.recaptchaToken ? 'failed verification' : 'was missing'}.\n\n${ctx}`,
-                    0xFF6C00,
-                ).catch(console.error)
                 return new Response(
                     JSON.stringify({ error: 'recaptcha_failed' }),
                     { status: 400, headers: { 'Content-Type': 'application/json' } },
