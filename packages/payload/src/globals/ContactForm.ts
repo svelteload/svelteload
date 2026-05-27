@@ -156,16 +156,12 @@ export const ContactForm: GlobalConfig = {
                                     label: 'Subject Placeholder',
                                     defaultValue: 'Subject',
                                     localized: true,
-                                    admin: {
-                                        description: 'Placeholder for the free-text subject input variant.',
-                                    },
                                 },
                                 {
                                     name: 'subjects',
                                     type: 'array',
                                     label: 'Subject Options',
                                     admin: {
-                                        description: 'Selectable subject options for the multi-choice variant.',
                                         components: {
                                             RowLabel: {
                                                 path: '@cms/components/ArrayRowLabel',

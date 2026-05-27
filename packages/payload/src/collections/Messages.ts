@@ -81,9 +81,6 @@ export const Messages: CollectionConfig = {
         {
             name: 'currentPage',
             type: 'text',
-            admin: {
-                description: 'Page the user was on when they submitted the form.',
-            },
         },
         {
             name: 'userAgent',

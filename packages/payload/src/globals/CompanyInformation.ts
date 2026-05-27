@@ -132,11 +132,11 @@ export const CompanyInformation: GlobalConfig = {
                             type: 'array',
                             label: 'Social Profiles',
                             admin: {
-                                description: 'Links to official company profiles. Each row is an icon + URL pair. Used as Schema.org sameAs and (optionally) by the footer or other social UI.',
+                                description: 'Used as Schema.org sameAs.',
                                 components: {
                                     RowLabel: {
                                         path: '@cms/components/ArrayRowLabel',
-                                        clientProps: { fieldName: 'label', fallback: 'Profile' },
+                                        clientProps: { fieldName: 'url', fallback: 'Profile' },
                                     },
                                 },
                             },
@@ -146,22 +146,11 @@ export const CompanyInformation: GlobalConfig = {
                                     type: 'upload',
                                     relationTo: 'media',
                                     required: true,
-                                    admin: {
-                                        description: 'Icon shown wherever this profile is rendered. Upload the exact image you want displayed (typically a small square SVG or PNG).',
-                                    },
                                 },
                                 {
                                     name: 'url',
                                     type: 'text',
                                     required: true,
-                                },
-                                {
-                                    name: 'label',
-                                    type: 'text',
-                                    localized: true,
-                                    admin: {
-                                        description: 'Used as the icon\'s alt text and the admin row label. E.g. "LinkedIn", "Facebook".',
-                                    },
                                 },
                             ],
                         },
