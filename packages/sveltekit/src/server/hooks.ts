@@ -1,6 +1,7 @@
 import type { Handle } from '@sveltejs/kit'
 import { parse } from 'cookie'
 import { PUBLIC_PAYLOAD_ADMIN_URL, PUBLIC_PREVIEW_URL } from '$env/static/public'
+import { VERCEL_ENV } from '$env/static/private'
 import { payloadConfigBase } from 'payload-config/payload-base.config'
 import { projectMeta } from 'project-meta/projectMeta'
 import { validatePreviewToken, PREVIEW_COOKIE_NAME, PREVIEW_QUERY_PARAM } from './previewAuth'
@@ -174,7 +175,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     }
 
     const isPreviewHost = PREVIEW_HOST !== null && event.url.host === PREVIEW_HOST
-    event.locals.isPreview = isPreviewHost
+    event.locals.isPreview = isPreviewHost || VERCEL_ENV === 'development'
     event.locals.isInIframe = request.headers.get('sec-fetch-dest') === 'iframe'
 
     if (isPreviewHost && !isStaticAsset(url.pathname) && !(await previewAuthOk(event))) {
