@@ -1,4 +1,5 @@
 import { convertLexicalToHTMLAsync } from '@payloadcms/richtext-lexical/html-async'
+import { encodeMediaUrl } from './encodeMediaUrl'
 
 const SIZE_WIDTHS = {
     thumbnail: 300,
@@ -23,21 +24,21 @@ function buildInlineUploadHTML(doc: any, alt: string): string {
     const mimeType: string = doc.mimeType ?? ''
 
     if (!mimeType.startsWith('image')) {
-        return `<a href="${escapeAttr(url)}" rel="noopener noreferrer">${escapeAttr(doc.filename ?? '')}</a>`
+        return `<a href="${escapeAttr(encodeMediaUrl(url))}" rel="noopener noreferrer">${escapeAttr(doc.filename ?? '')}</a>`
     }
 
     const isSvg = url.toLowerCase().endsWith('.svg')
     if (isSvg) {
-        return `<img src="${escapeAttr(url)}" alt="${escapeAttr(alt)}" loading="lazy"/>`
+        return `<img src="${escapeAttr(encodeMediaUrl(url))}" alt="${escapeAttr(alt)}" loading="lazy"/>`
     }
 
     const sizes = doc.sizes ?? {}
     const srcsetParts = Object.entries(SIZE_WIDTHS)
         .filter(([ name ]) => sizes[name]?.url)
-        .map(([ name, width ]) => `${sizes[name].url} ${width}w`)
+        .map(([ name, width ]) => `${encodeMediaUrl(sizes[name].url)} ${width}w`)
     const srcset = srcsetParts.join(', ')
 
-    const bestUrl = sizes.massive?.url ?? sizes.original?.url ?? url
+    const bestUrl = encodeMediaUrl(sizes.massive?.url ?? sizes.original?.url ?? url)
     const srcsetAttr = srcset ? ` srcset="${escapeAttr(srcset)}" sizes="(min-width: 1200px) 1200px, 100vw"` : ''
 
     return `<img src="${escapeAttr(bestUrl)}"${srcsetAttr} alt="${escapeAttr(alt)}" loading="lazy" class="inline-upload"/>`

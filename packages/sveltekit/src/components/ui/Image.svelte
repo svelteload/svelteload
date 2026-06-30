@@ -1,5 +1,6 @@
 <script lang="ts">
     import { IMAGE_SRCSET_WIDTHS, type SrcsetSizeName } from '@svelteload/payload/imageSizes'
+    import { encodeMediaUrl } from '../../utils/encodeMediaUrl'
 
     type PayloadImage = {
         url: string
@@ -46,24 +47,25 @@
         }
         return entries
             .filter(e => image.sizes?.[e[0]]?.url)
-            .map(e => `${image.sizes![e[0]]!.url} ${e[1]}w`)
+            .map(e => `${encodeMediaUrl(image.sizes![e[0]]!.url)} ${e[1]}w`)
             .join(', ')
     }
 
     function getBestUrl(): string {
         if (!image) return ''
-        return image.sizes?.massive?.url
-            ?? image.sizes?.original?.url
-            ?? image.url
-            ?? ''
+        return encodeMediaUrl(
+            image.sizes?.massive?.url
+                ?? image.sizes?.original?.url
+                ?? image.url,
+        )
     }
 
     const isSvg = $derived(image?.url?.toLowerCase().endsWith('.svg') ?? false)
     const computedSizes = $derived(sizesProp ?? (maxWidth ? `${maxWidth}px` : '100vw'))
     const portraitSrcset = $derived(
         [
-            image?.sizes?.portrait_small?.url ? `${image.sizes.portrait_small.url} 480w` : '',
-            image?.sizes?.portrait_medium?.url ? `${image.sizes.portrait_medium.url} 768w` : '',
+            image?.sizes?.portrait_small?.url ? `${encodeMediaUrl(image.sizes.portrait_small.url)} 480w` : '',
+            image?.sizes?.portrait_medium?.url ? `${encodeMediaUrl(image.sizes.portrait_medium.url)} 768w` : '',
         ].filter(Boolean).join(', '),
     )
 </script>
@@ -78,7 +80,7 @@
     {/if}
     {#key image?.url}
         <img
-            src={isSvg ? image.url : getBestUrl()}
+            src={isSvg ? encodeMediaUrl(image.url) : getBestUrl()}
             srcset={isSvg ? undefined : getSrcset()}
             sizes={isSvg ? undefined : computedSizes}
             alt={image?.alt ?? ''}

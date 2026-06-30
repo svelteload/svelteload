@@ -2,10 +2,18 @@ import type { CollectionConfig } from 'payload'
 import { setAccess } from '@cms/access/roles'
 import { projectMeta } from 'project-meta/projectMeta'
 import { BASE_IMAGE_SIZES } from '../imageSizes'
+import { sanitizeUploadFilename } from '../utils/sanitizeUploadFilename'
 
 export const Media: CollectionConfig = {
     slug: 'media',
     hooks: {
+        beforeOperation: [
+            ({ req, operation }) => {
+                if ((operation === 'create' || operation === 'update') && req.file?.name) {
+                    req.file.name = sanitizeUploadFilename(req.file.name)
+                }
+            },
+        ],
         afterRead: [
             ({ doc }) => {
                 const base = projectMeta.mediaUrlBase.replace(/\/$/, '')
