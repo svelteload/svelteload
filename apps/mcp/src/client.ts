@@ -59,8 +59,8 @@ export class PayloadClient {
       sort?: string
     } = {},
   ): Promise<FindResult> {
-    const { where, ...rest } = params
-    const queryParams: Record<string, unknown> = { draft: true, ...rest }
+    const { where, depth, ...rest } = params
+    const queryParams: Record<string, unknown> = { draft: true, depth: depth ?? 0, ...rest }
     if (where) queryParams.where = where
 
     const url = this.buildUrl(`/api/${collection}`, queryParams)
@@ -72,7 +72,8 @@ export class PayloadClient {
     id: string | number,
     params: { locale?: string; depth?: number } = {},
   ): Promise<Record<string, unknown>> {
-    const queryParams: Record<string, unknown> = { draft: true, ...params }
+    const { depth, ...rest } = params
+    const queryParams: Record<string, unknown> = { draft: true, depth: depth ?? 0, ...rest }
     const url = this.buildUrl(`/api/${collection}/${id}`, queryParams)
     return this.request<Record<string, unknown>>(url)
   }
@@ -97,7 +98,7 @@ export class PayloadClient {
     data: Record<string, unknown>,
     params: { locale?: string } = {},
   ): Promise<Record<string, unknown>> {
-    const queryParams: Record<string, unknown> = { draft: true, ...params }
+    const queryParams: Record<string, unknown> = { draft: true, depth: 0, ...params }
     const url = this.buildUrl(`/api/${collection}/${id}`, queryParams)
     const safeData = { ...data, _status: 'draft' }
     return this.request<Record<string, unknown>>(url, {
@@ -110,7 +111,8 @@ export class PayloadClient {
     slug: string,
     params: { locale?: string; depth?: number } = {},
   ): Promise<Record<string, unknown>> {
-    const queryParams: Record<string, unknown> = { draft: true, ...params }
+    const { depth, ...rest } = params
+    const queryParams: Record<string, unknown> = { draft: true, depth: depth ?? 0, ...rest }
     const url = this.buildUrl(`/api/globals/${slug}`, queryParams)
     return this.request<Record<string, unknown>>(url)
   }
@@ -120,7 +122,7 @@ export class PayloadClient {
     data: Record<string, unknown>,
     params: { locale?: string } = {},
   ): Promise<Record<string, unknown>> {
-    const queryParams: Record<string, unknown> = { draft: true, ...params }
+    const queryParams: Record<string, unknown> = { draft: true, depth: 0, ...params }
     const url = this.buildUrl(`/api/globals/${slug}`, queryParams)
     const safeData = { ...data, _status: 'draft' }
     return this.request<Record<string, unknown>>(url, {

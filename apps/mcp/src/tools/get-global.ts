@@ -9,7 +9,7 @@ export function registerGetGlobal(server: McpServer, client: PayloadClient) {
     {
       slug: z.string().describe('Global slug (e.g. "navbar", "footer", "company-info", "blog-settings", "contact-form", "url-redirects")'),
       locale: z.string().optional().describe('Locale code (e.g. "en", "sv"). Defaults to "en".'),
-      depth: z.number().optional().describe('Relationship population depth. 0 = IDs only.'),
+      depth: z.number().optional().describe('Relationship population depth. Defaults to 0 (relations/uploads as bare IDs; inline content is always fully returned). Pass 1 only when you need populated media URLs / related docs.'),
     },
     async ({ slug, locale, depth }) => {
       const result = await client.getGlobal(slug, { locale, depth })

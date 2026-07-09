@@ -10,7 +10,7 @@ export function registerFind(server: McpServer, client: PayloadClient) {
       collection: z.string().describe('Collection slug (e.g. "pages", "blog", "menus", "media")'),
       where: z.record(z.string(), z.unknown()).optional().describe('Payload where query object (e.g. {"title":{"equals":"Home"}})'),
       locale: z.string().optional().describe('Locale code (e.g. "en", "sv"). Defaults to "en".'),
-      depth: z.number().optional().describe('Relationship population depth. 0 = IDs only, 1 = one level. Default varies.'),
+      depth: z.number().optional().describe('Relationship population depth. Defaults to 0 (relations/uploads as bare IDs; inline block content is always fully returned). Pass 1 only when you need populated media URLs / related docs.'),
       limit: z.number().optional().describe('Max documents to return. Default 10.'),
       page: z.number().optional().describe('Page number for pagination.'),
       sort: z.string().optional().describe('Field to sort by. Prefix with "-" for descending (e.g. "-createdAt").'),
