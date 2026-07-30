@@ -1,7 +1,7 @@
 declare module '$env/static/private' {
     export const PAYLOAD_SECRET: string
     export const POSTGRES_URL: string
-    export const SENDGRID_API_KEY: string
+    export const LETTERMINT_API_KEY: string
     export const GOOGLE_CLOUD_PROJECT_ID: string
     export const GOOGLE_CLOUD_CLIENT_EMAIL: string
     export const GOOGLE_CLOUD_PRIVATE_KEY: string

@@ -68,7 +68,7 @@ export const Messages: CollectionConfig = {
             name: 'errorMessage',
             type: 'textarea',
             admin: {
-                description: 'SendGrid error output when status is delivery_failed.',
+                description: 'Lettermint error output when status is delivery_failed.',
                 condition: (data) => data?.status === 'delivery_failed',
             },
         },

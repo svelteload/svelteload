@@ -4,7 +4,7 @@ import { draftProtectionPlugin } from '@cms/plugins/draftProtectionPlugin'
 import { searchPlugin } from '@cms/plugins/searchPlugin'
 import { invitesPlugin } from '@cms/invites/plugin'
 import { previewAuthPlugin } from '@cms/previewAuth/plugin'
-import { sendgridEmail } from '@cms/email/sendgridEmail'
+import { lettermintEmail } from '@cms/email/lettermintEmail'
 
 export interface PayloadAdminPluginOptions {
   search?: boolean
@@ -45,7 +45,7 @@ export function payloadAdminPlugin(options: PayloadAdminPluginOptions = {}): Plu
     if (email) {
       result = {
         ...result,
-        email: sendgridEmail({ fromAddress: email.fromAddress, fromName: email.fromName }),
+        email: lettermintEmail({ fromAddress: email.fromAddress, fromName: email.fromName }),
       }
     }
     result = {

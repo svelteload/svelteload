@@ -1,8 +1,9 @@
-import sgMail from '@sendgrid/mail'
 import type { RequestHandler } from '@sveltejs/kit'
 import { RecaptchaEnterpriseServiceClient } from '@google-cloud/recaptcha-enterprise'
+import nodemailer, { type Transporter } from 'nodemailer'
+import { lettermintTransportOptions } from '@svelteload/payload/email/lettermint'
 import {
-    SENDGRID_API_KEY,
+    LETTERMINT_API_KEY,
     GOOGLE_CLOUD_PROJECT_ID,
     GOOGLE_CLOUD_CLIENT_EMAIL,
     GOOGLE_CLOUD_PRIVATE_KEY,
@@ -29,11 +30,11 @@ function getRecaptchaClient(): RecaptchaEnterpriseServiceClient {
     return recaptchaClientCache
 }
 
-let sgMailReady = false
-function ensureSgMail(): void {
-    if (sgMailReady) return
-    sgMail.setApiKey(SENDGRID_API_KEY)
-    sgMailReady = true
+let transporterCache: Transporter | null = null
+function getTransporter(): Transporter {
+    if (transporterCache) return transporterCache
+    transporterCache = nodemailer.createTransport(lettermintTransportOptions(LETTERMINT_API_KEY))
+    return transporterCache
 }
 
 async function verifyRecaptcha(token: string): Promise<boolean> {
@@ -222,7 +223,6 @@ function formatContactContext(form: NormalizedForm, userAgent: string | null): s
 }
 
 export const POST: RequestHandler = async ({ request }) => {
-    ensureSgMail()
     let messageId: number | null = null
     let form: NormalizedForm | null = null
 
@@ -246,15 +246,14 @@ export const POST: RequestHandler = async ({ request }) => {
         form = normalizeForm(rawForm)
         const settings = normalizeSettings(rawCombined, rawConfirmation)
 
-        const attachments: Array<{ content: string; filename: string; type: string; disposition: string }> = []
+        const attachments: Array<{ filename: string; content: Buffer; contentType?: string }> = []
         for (const [key, value] of fd.entries()) {
             if (key.startsWith('attachment_') && value instanceof File) {
                 const buffer = await value.arrayBuffer()
                 attachments.push({
-                    content: Buffer.from(buffer).toString('base64'),
                     filename: value.name,
-                    type: value.type,
-                    disposition: 'attachment',
+                    content: Buffer.from(buffer),
+                    ...(value.type ? { contentType: value.type } : {}),
                 })
             }
         }
@@ -300,7 +299,7 @@ export const POST: RequestHandler = async ({ request }) => {
             console.error('Message DB persist failed:', dbErr)
             sendDiscordNotification(
                 'Message DB Persist Failed',
-                `Could not store submission in Payload. SendGrid will still attempt delivery.\n\n**DB Error:** ${dbErr}\n**User:** ${form.fullName} (${form.email})`,
+                `Could not store submission in Payload. Lettermint will still attempt delivery.\n\n**DB Error:** ${dbErr}\n**User:** ${form.fullName} (${form.email})`,
                 0xFF6C00,
             ).catch(console.error)
         }
@@ -346,8 +345,9 @@ export const POST: RequestHandler = async ({ request }) => {
             }),
         }
 
-        await sgMail.send(confirmationEmailData)
-        await sgMail.send(yourEmailData)
+        const transporter = getTransporter()
+        await transporter.sendMail(confirmationEmailData)
+        await transporter.sendMail(yourEmailData)
 
         return new Response(
             JSON.stringify({
