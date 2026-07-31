@@ -8,11 +8,11 @@ import {
     GOOGLE_CLOUD_CLIENT_EMAIL,
     GOOGLE_CLOUD_PRIVATE_KEY,
     RECAPTCHA_SITE_KEY,
-    DISCORD_WEBHOOK_URL,
 } from '$env/static/private'
 import { PUBLIC_SITE_URL } from '$env/static/public'
 import { projectMeta } from 'project-meta/projectMeta'
 import { getPayloadInstance } from './payload'
+import { notifyDiscord } from './notifyDiscord'
 import { wrapEmailHtml, escapeHtml, escapeHtmlMultiline, dropEmptyContent } from './emailShell'
 
 let recaptchaClientCache: RecaptchaEnterpriseServiceClient | null = null
@@ -65,21 +65,6 @@ function isValidEmail(email: string): boolean {
     if (local.startsWith('.') || local.endsWith('.')) return false
     if (domain.startsWith('.') || domain.endsWith('.')) return false
     return true
-}
-
-async function sendDiscordNotification(title: string, message: string, color: number): Promise<void> {
-    if (!DISCORD_WEBHOOK_URL) return
-    try {
-        await fetch(DISCORD_WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                embeds: [{ title, description: message, color, timestamp: new Date().toISOString() }],
-            }),
-        })
-    } catch (error) {
-        console.error('Discord notification failed:', error)
-    }
 }
 
 type NormalizedForm = {
@@ -297,7 +282,7 @@ export const POST: RequestHandler = async ({ request }) => {
         } catch (dbError) {
             const dbErr = dbError instanceof Error ? dbError.message : String(dbError)
             console.error('Message DB persist failed:', dbErr)
-            sendDiscordNotification(
+            notifyDiscord(
                 'Message DB Persist Failed',
                 `Could not store submission in Payload. Lettermint will still attempt delivery.\n\n**DB Error:** ${dbErr}\n**User:** ${form.fullName} (${form.email})`,
                 0xFF6C00,
@@ -362,7 +347,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
         if (form) {
             const ctx = formatContactContext(form, request.headers.get('user-agent'))
-            sendDiscordNotification(
+            notifyDiscord(
                 'Contact Form Send Failed',
                 `Email delivery failed.\n\n**Error:** ${errorMessage}\n\n${ctx}`,
                 0xE74C3C,
