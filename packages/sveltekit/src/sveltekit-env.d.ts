@@ -7,6 +7,7 @@ declare module '$env/static/private' {
     export const GOOGLE_CLOUD_PRIVATE_KEY: string
     export const RECAPTCHA_SITE_KEY: string
     export const DISCORD_WEBHOOK_URL: string
+    export const CRON_SECRET: string
     export const VERCEL_ENV: string
 }
 

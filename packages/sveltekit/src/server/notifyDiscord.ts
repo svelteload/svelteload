@@ -1,10 +1,9 @@
-import { env } from '$env/dynamic/private'
+import { DISCORD_WEBHOOK_URL } from '$env/static/private'
 
 export async function notifyDiscord(title: string, message: string, color: number): Promise<void> {
-    const webhook = env.DISCORD_WEBHOOK_URL
-    if (!webhook) return
+    if (!DISCORD_WEBHOOK_URL) return
     try {
-        await fetch(webhook, {
+        await fetch(DISCORD_WEBHOOK_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

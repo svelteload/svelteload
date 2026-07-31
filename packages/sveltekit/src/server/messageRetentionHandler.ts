@@ -1,6 +1,6 @@
 import type { RequestHandler } from '@sveltejs/kit'
 import { json, error } from '@sveltejs/kit'
-import { env } from '$env/dynamic/private'
+import { CRON_SECRET } from '$env/static/private'
 import { projectMeta } from 'project-meta/projectMeta'
 import { getPayloadInstance } from './payload'
 import { notifyDiscord } from './notifyDiscord'
@@ -27,8 +27,7 @@ const cutoffDate = (months: number) => {
 }
 
 export const GET: RequestHandler = async ({ request, url }) => {
-    const secret = env.CRON_SECRET
-    if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) {
+    if (!CRON_SECRET || request.headers.get('authorization') !== `Bearer ${CRON_SECRET}`) {
         error(401, 'Unauthorized')
     }
 
