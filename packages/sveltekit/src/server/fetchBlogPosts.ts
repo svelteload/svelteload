@@ -1,4 +1,5 @@
 import { convertLexicalFieldsToHTML } from '../utils/lexicalConverter'
+import { publishedWhere } from './publishedWhere'
 
 export interface BlogPagination {
     page: number
@@ -12,6 +13,7 @@ export interface FetchBlogPostsArgs {
     isDraft: boolean
     page?: number
     pageSize: number
+    locale?: string
 }
 
 export async function fetchBlogPosts({
@@ -19,20 +21,17 @@ export async function fetchBlogPosts({
     isDraft,
     page = 1,
     pageSize,
+    locale,
 }: FetchBlogPostsArgs): Promise<{ blogPosts: any[]; blogPagination: BlogPagination }> {
     const result = await payload.find({
         collection: 'blog',
+        ...(locale ? { locale } : {}),
         draft: isDraft,
         depth: 2,
         limit: pageSize,
         page,
         sort: [ 'pinnedOrder', '-publicationDate' ],
-        where: {
-            and: [
-                { publicationDate: { less_than_equal: new Date().toISOString() } },
-                ...(isDraft ? [] : [ { _status: { equals: 'published' } } ]),
-            ],
-        },
+        where: publishedWhere(isDraft, 'publicationDate'),
     })
 
     const blogPosts = await convertLexicalFieldsToHTML(result.docs) as any[]

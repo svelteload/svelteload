@@ -7,11 +7,7 @@ import { notifyDiscord } from './notifyDiscord'
 
 const DEFAULT_RETENTION_MONTHS = 24
 
-// ProjectMeta is declared per project, so a site that has not opted in will not have
-// this field on its type. Read it loosely so bumping the submodule pointer does not
-// break the projects that are happy with the default.
-const retentionMonths = (): number =>
-    (projectMeta as { messageRetentionMonths?: number }).messageRetentionMonths ?? DEFAULT_RETENTION_MONTHS
+const retentionMonths = (): number => projectMeta.messageRetentionMonths ?? DEFAULT_RETENTION_MONTHS
 
 // Deletes early so nothing outlives the retention period the privacy policy promises.
 // Covers the gap between daily runs plus up to 3 days of drift, since subtracting

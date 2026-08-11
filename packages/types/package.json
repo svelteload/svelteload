@@ -1,0 +1,23 @@
+{
+  "name": "@svelteload/types",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Contracts between shared svelteload code and per-project config. Depends on nothing in the workspace so both sides can import it without a dependency cycle.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "payload": "^3"
+  },
+  "devDependencies": {
+    "payload": "3.83.0",
+    "typescript": "^6.0.3"
+  }
+}
