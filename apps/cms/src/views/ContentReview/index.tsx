@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import type { ContentDocument, ReviewNote } from './fetchContent'
+import type { ContentDocument, ContentField, ReviewNote } from './fetchContent'
 import { markDocumentReviewed, unmarkDocumentReviewed, saveDocumentEdits, fetchDocumentDiff } from './actions'
 import type { FieldEdit } from './actions'
 import type { DocumentDiff } from './diff'
@@ -21,6 +21,19 @@ function getReviewStatus(doc: ContentDocument, notes: Record<string, ReviewNote>
   const note = notes[doc.docKey]
   if (!note) return 'new'
   return 'reviewed'
+}
+
+// Reviewing a document accepts its gaps as intentional (content that only runs in one locale).
+function isAcknowledged(doc: ContentDocument, notes: Record<string, ReviewNote>): boolean {
+  return getReviewStatus(doc, notes) === 'reviewed'
+}
+
+function flagsMissing(field: ContentField, acknowledged: boolean): boolean {
+  return field.isMissing && !acknowledged
+}
+
+function flagsWarning(field: ContentField, acknowledged: boolean): boolean {
+  return field.isWarning && !field.isMissing && !acknowledged
 }
 
 const STYLES = `
@@ -125,16 +138,21 @@ function DocumentCard({
   const fieldIsEditable = (fieldPath: string) =>
     isEditing && !docHasMarked || (isEditing && markedFields.has(makeFieldKey(docKey, fieldPath)))
 
+  const acknowledged = reviewStatus === 'reviewed'
+
   const visibleFields = doc.fields.filter((f) => {
-    if (showMode === 'missing') return f.isMissing
-    if (showMode === 'warnings') return f.isWarning && !f.isMissing
+    if (showMode === 'missing') return flagsMissing(f, acknowledged)
+    if (showMode === 'warnings') return flagsWarning(f, acknowledged)
     if (showMode === 'marked') return markedFields.has(makeFieldKey(docKey, f.path))
     return true
   })
 
   const markedCount = doc.fields.filter((f) => markedFields.has(makeFieldKey(docKey, f.path))).length
-  const missingCount = doc.fields.filter((f) => f.isMissing).length
-  const warningCount = doc.fields.filter((f) => f.isWarning && !f.isMissing).length
+  const missingCount = doc.fields.filter((f) => flagsMissing(f, acknowledged)).length
+  const warningCount = doc.fields.filter((f) => flagsWarning(f, acknowledged)).length
+  const acceptedCount = acknowledged
+    ? doc.fields.filter((f) => f.isMissing || f.isWarning).length
+    : 0
 
   const displayLocales = localeA === localeB ? [localeA] : [localeA, localeB]
 
@@ -226,8 +244,11 @@ function DocumentCard({
               </span>
             )}
             {reviewStatus === 'reviewed' && (
-              <span style={{ fontSize: '11px', fontWeight: 500, color: '#4ade80', background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.25)', borderRadius: '10px', padding: '1px 7px' }}>
-                ✓ reviewed
+              <span
+                style={{ fontSize: '11px', fontWeight: 500, color: '#4ade80', background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.25)', borderRadius: '10px', padding: '1px 7px' }}
+                title={acceptedCount > 0 ? 'Gaps in this document are accepted as intentional' : undefined}
+              >
+                ✓ reviewed{acceptedCount > 0 ? ` · ${acceptedCount} accepted` : ''}
               </span>
             )}
             {reviewStatus === 'draft' && (
@@ -288,6 +309,11 @@ function DocumentCard({
                   opacity: isPending ? 0.5 : 1,
                   transition: 'color 0.15s, border-color 0.15s',
                 }}
+                title={
+                  reviewStatus === 'reviewed'
+                    ? 'Unmark to bring this document back into the review queue'
+                    : 'Accepts any missing translations here as intentional and clears the document from the queue'
+                }
               >
                 {reviewStatus === 'reviewed'
                   ? '✓ Reviewed'
@@ -387,18 +413,20 @@ function DocumentCard({
             {visibleFields.map((field, i) => {
               const fieldKey = makeFieldKey(docKey, field.path)
               const isMarked = markedFields.has(fieldKey)
+              const showsMissing = flagsMissing(field, acknowledged)
+              const showsWarning = flagsWarning(field, acknowledged)
               const aVal = field.values[localeA] ?? ''
               const bVal = field.values[localeB] ?? ''
-              const same = displayLocales.length > 1 && aVal === bVal && !field.isMissing
+              const same = displayLocales.length > 1 && aVal === bVal && !showsMissing
 
               let rowClass = 'cr-row'
               if (isMarked) rowClass += ' cr-row-marked'
-              else if (field.isMissing) rowClass += ' cr-row-missing'
-              else if (field.isWarning) rowClass += ' cr-row-warning'
+              else if (showsMissing) rowClass += ' cr-row-missing'
+              else if (showsWarning) rowClass += ' cr-row-warning'
 
-              const pathColor = field.isMissing
+              const pathColor = showsMissing
                 ? '#ef4444'
-                : field.isWarning
+                : showsWarning
                 ? '#ca8a04'
                 : 'var(--theme-elevation-500)'
 
@@ -430,8 +458,8 @@ function DocumentCard({
                     title={field.warningNote ? `${field.path} — ${field.warningNote}` : field.path}
                   >
                     {field.path}
-                    {field.isMissing && <span style={{ marginLeft: '5px', opacity: 0.7 }}>⚠</span>}
-                    {field.isWarning && !field.isMissing && <span style={{ marginLeft: '5px', opacity: 0.7 }}>~</span>}
+                    {showsMissing && <span style={{ marginLeft: '5px', opacity: 0.7 }}>⚠</span>}
+                    {showsWarning && <span style={{ marginLeft: '5px', opacity: 0.7 }}>~</span>}
                   </td>
 
                   {field.singleValue !== undefined ? (
@@ -442,7 +470,7 @@ function DocumentCard({
                         borderRight: 'none',
                         fontFamily: 'monospace',
                         fontSize: '12px',
-                        color: field.isMissing ? 'rgba(239,68,68,0.7)' : 'var(--theme-elevation-600)',
+                        color: showsMissing ? 'rgba(239,68,68,0.7)' : 'var(--theme-elevation-600)',
                       }}
                     >
                       {field.singleValue}
@@ -520,19 +548,21 @@ function DocumentCard({
                             style={{
                               ...tdStyle,
                               borderRight: isLastCol ? 'none' : tdStyle.borderRight,
-                              color: !val && field.isMissing
+                              color: !val && showsMissing
                                 ? 'rgba(239,68,68,0.5)'
-                                : isLastCol && same && !field.isWarning
+                                : isLastCol && same && !showsWarning
                                 ? 'var(--theme-elevation-500)'
                                 : isMuted
                                 ? 'var(--theme-elevation-300)'
+                                : !val
+                                ? 'var(--theme-elevation-400)'
                                 : undefined,
                               fontStyle: !val ? 'italic' : undefined,
                               opacity: isMuted ? 0.5 : undefined,
                             }}
                           >
                             {val || (field.isMissing ? 'empty' : '')}
-                            {isLastCol && field.isWarning && field.warningNote && !field.isMissing && (
+                            {isLastCol && showsWarning && field.warningNote && (
                               <span style={{ display: 'block', fontSize: '11px', color: '#ca8a04', opacity: 0.8, marginTop: '2px' }}>
                                 {field.warningNote}
                               </span>
@@ -720,13 +750,10 @@ export function ContentReviewList({ documents, localeCodes, initialNotes }: Prop
     return opts
   }, [documents])
 
-  const newCount = useMemo(() => {
-    return documents.filter((doc) => {
-      const status = getReviewStatus(doc, notes)
-      if (status !== 'reviewed') return true
-      return doc.fields.some((f) => f.isMissing)
-    }).length
-  }, [documents, notes])
+  const newCount = useMemo(
+    () => documents.filter((doc) => !isAcknowledged(doc, notes)).length,
+    [documents, notes],
+  )
 
   const draftCount = useMemo(
     () => documents.filter((doc) => doc.docStatus === 'draft').length,
@@ -743,31 +770,29 @@ export function ContentReviewList({ documents, localeCodes, initialNotes }: Prop
 
   const displayDocs = useMemo(() => {
     if (showMode === 'all') return filtered
-    if (showMode === 'missing') return filtered.filter((doc) => doc.fields.some((f) => f.isMissing))
-    if (showMode === 'warnings') return filtered.filter((doc) => doc.fields.some((f) => f.isWarning && !f.isMissing))
+    if (showMode === 'missing')
+      return filtered.filter((doc) => doc.fields.some((f) => flagsMissing(f, isAcknowledged(doc, notes))))
+    if (showMode === 'warnings')
+      return filtered.filter((doc) => doc.fields.some((f) => flagsWarning(f, isAcknowledged(doc, notes))))
     return filtered.filter((doc) => {
       const docKey = getDocKey(doc)
       return doc.fields.some((f) => markedFields.has(makeFieldKey(docKey, f.path)))
     })
-  }, [filtered, markedFields, showMode])
+  }, [filtered, markedFields, showMode, notes])
 
   const visibleDocs = useMemo(() => {
     if (filterKey === 'drafts') return displayDocs.filter((doc) => doc.docStatus === 'draft')
     if (filterKey !== 'new') return displayDocs
-    return displayDocs.filter((doc) => {
-      const status = getReviewStatus(doc, notes)
-      if (status !== 'reviewed') return true
-      return doc.fields.some((f) => f.isMissing)
-    })
+    return displayDocs.filter((doc) => !isAcknowledged(doc, notes))
   }, [displayDocs, filterKey, notes])
 
   const markedCount = markedFields.size
   const totalMissing = documents.reduce(
-    (sum, doc) => sum + doc.fields.filter((f) => f.isMissing).length,
+    (sum, doc) => sum + doc.fields.filter((f) => flagsMissing(f, isAcknowledged(doc, notes))).length,
     0,
   )
   const totalWarnings = documents.reduce(
-    (sum, doc) => sum + doc.fields.filter((f) => f.isWarning && !f.isMissing).length,
+    (sum, doc) => sum + doc.fields.filter((f) => flagsWarning(f, isAcknowledged(doc, notes))).length,
     0,
   )
 
