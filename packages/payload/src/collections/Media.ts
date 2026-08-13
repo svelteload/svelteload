@@ -1,5 +1,5 @@
 import type { CollectionConfig } from 'payload'
-import { setAccess } from '@cms/access/roles'
+import { minRoleField, setAccess } from '@cms/access/roles'
 import { projectMeta } from 'project-meta/projectMeta'
 import { BASE_IMAGE_SIZES } from '../imageSizes'
 import { sanitizeUploadFilename } from '../utils/sanitizeUploadFilename'
@@ -51,6 +51,30 @@ export const Media: CollectionConfig = {
             name: 'alt',
             type: 'text',
             localized: true,
+        },
+        {
+            type: 'collapsible',
+            label: 'Stock Image',
+            admin: { initCollapsed: true },
+            fields: [
+                {
+                    name: 'sourceUrl',
+                    type: 'text',
+                    label: 'Source URL',
+                    admin: {
+                        description: 'Provider page the file was downloaded from, for redownloading in another size.',
+                    },
+                    access: { read: minRoleField('reader') },
+                },
+                {
+                    name: 'licenseDocument',
+                    type: 'upload',
+                    label: 'License Document',
+                    relationTo: 'media',
+                    filterOptions: { mimeType: { contains: 'pdf' } },
+                    access: { read: minRoleField('reader') },
+                },
+            ],
         },
         {
             name: 'usageCount',
