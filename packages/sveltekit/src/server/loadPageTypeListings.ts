@@ -10,6 +10,7 @@ export type PageTypeListings = {
 const DEFAULT_SEARCH_EXCLUDED = [
     'users',
     'media',
+    'private-media',
     'payload-preferences',
     'payload-migrations',
     'content-review-notes',

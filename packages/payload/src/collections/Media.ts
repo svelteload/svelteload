@@ -2,6 +2,7 @@ import type { CollectionConfig } from 'payload'
 import { minRoleField, setAccess } from '@cms/access/roles'
 import { projectMeta } from 'project-meta/projectMeta'
 import { BASE_IMAGE_SIZES } from '../imageSizes'
+import { UPLOAD_MIME_TYPES } from '../uploadMimeTypes'
 import { sanitizeUploadFilename } from '../utils/sanitizeUploadFilename'
 
 export const Media: CollectionConfig = {
@@ -15,7 +16,11 @@ export const Media: CollectionConfig = {
             },
         ],
         afterRead: [
-            ({ doc }) => {
+            ({ doc, req }) => {
+                if (!req.user) {
+                    delete doc.sourceUrl
+                    delete doc.licenseDocument
+                }
                 const base = projectMeta.mediaUrlBase.replace(/\/$/, '')
                 if (doc.filename) {
                     doc.url = `${base}/${doc.filename}`
@@ -70,8 +75,7 @@ export const Media: CollectionConfig = {
                     name: 'licenseDocument',
                     type: 'upload',
                     label: 'License Document',
-                    relationTo: 'media',
-                    filterOptions: { mimeType: { contains: 'pdf' } },
+                    relationTo: 'private-media',
                     access: { read: minRoleField('reader') },
                 },
             ],
@@ -113,41 +117,7 @@ export const Media: CollectionConfig = {
         },
     ],
     upload: {
-        mimeTypes: [
-            'image/*',
-            'video/mp4',
-            'video/webm',
-            'video/ogg',
-            'video/avi',
-            'video/mov',
-            'video/quicktime',
-            'audio/mpeg',
-            'audio/mp3',
-            'audio/wav',
-            'audio/ogg',
-            'audio/aac',
-            'application/pdf',
-            'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'application/rtf',
-            'text/plain',
-            'text/markdown',
-            'application/vnd.ms-excel',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'text/csv',
-            'application/vnd.ms-powerpoint',
-            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            'application/zip',
-            'application/x-rar-compressed',
-            'application/x-7z-compressed',
-            'application/gzip',
-            'application/json',
-            'application/xml',
-            'text/xml',
-            'application/javascript',
-            'text/css',
-            'text/html',
-        ],
+        mimeTypes: UPLOAD_MIME_TYPES,
         imageSizes: [
             ...BASE_IMAGE_SIZES,
             ...projectMeta.additionalImageSizes,

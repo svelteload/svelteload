@@ -20,11 +20,17 @@ export const minRole = (min: UserRole): Access => ({ req }) =>
 export const minRoleField = (min: UserRole): FieldAccess => ({ req }) =>
   rank(getUserRole(req.user)) >= rank(min)
 
-type Tier = 'editor' | 'agent' | 'admin'
+type Tier = 'editor' | 'internal' | 'agent' | 'admin'
 
 const COLLECTION_TIERS: Record<Tier, NonNullable<CollectionConfig['access']>> = {
   editor: {
     read: () => true,
+    create: minRole('contributor'),
+    update: minRole('contributor'),
+    delete: minRole('contributor'),
+  },
+  internal: {
+    read: minRole('reader'),
     create: minRole('contributor'),
     update: minRole('contributor'),
     delete: minRole('contributor'),
@@ -44,9 +50,10 @@ const COLLECTION_TIERS: Record<Tier, NonNullable<CollectionConfig['access']>> = 
 }
 
 const GLOBAL_TIERS: Record<Tier, NonNullable<GlobalConfig['access']>> = {
-  editor: { read: () => true,        update: minRole('contributor') },
-  agent:  { read: minRole('agent'),  update: minRole('admin') },
-  admin:  { read: minRole('admin'),  update: minRole('admin') },
+  editor:   { read: () => true,         update: minRole('contributor') },
+  internal: { read: minRole('reader'),  update: minRole('contributor') },
+  agent:    { read: minRole('agent'),   update: minRole('admin') },
+  admin:    { read: minRole('admin'),   update: minRole('admin') },
 }
 
 export const setAccess = (tier: Tier) => COLLECTION_TIERS[tier]
