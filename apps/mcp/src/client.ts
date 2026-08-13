@@ -19,9 +19,15 @@ export class PayloadClient {
     this.apiKey = apiKey
   }
 
-  private get headers(): Record<string, string> {
+  private get authHeaders(): Record<string, string> {
     return {
       'Authorization': `users API-Key ${this.apiKey}`,
+    }
+  }
+
+  private get headers(): Record<string, string> {
+    return {
+      ...this.authHeaders,
       'Content-Type': 'application/json',
     }
   }
@@ -31,12 +37,7 @@ export class PayloadClient {
     return `${this.baseUrl}${path}${query}`
   }
 
-  private async request<T>(url: string, options: RequestInit = {}): Promise<T> {
-    const res = await fetch(url, {
-      ...options,
-      headers: { ...this.headers, ...options.headers as Record<string, string> },
-    })
-
+  private async parseResponse<T>(res: Response): Promise<T> {
     const body = await res.json() as Record<string, unknown>
 
     if (!res.ok) {
@@ -46,6 +47,15 @@ export class PayloadClient {
     }
 
     return body as T
+  }
+
+  private async request<T>(url: string, options: RequestInit = {}): Promise<T> {
+    const res = await fetch(url, {
+      ...options,
+      headers: { ...this.headers, ...options.headers as Record<string, string> },
+    })
+
+    return this.parseResponse<T>(res)
   }
 
   async find(
@@ -90,6 +100,26 @@ export class PayloadClient {
       method: 'POST',
       body: JSON.stringify(safeData),
     })
+  }
+
+  async upload(
+    collection: string,
+    file: { data: Uint8Array<ArrayBuffer>; filename: string; mimeType: string },
+    data: Record<string, unknown> = {},
+    params: { locale?: string } = {},
+  ): Promise<Record<string, unknown>> {
+    const form = new FormData()
+    form.append('_payload', JSON.stringify(data))
+    form.append('file', new Blob([file.data], { type: file.mimeType }), file.filename)
+
+    const url = this.buildUrl(`/api/${collection}`, { depth: 0, ...params })
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: this.authHeaders,
+      body: form,
+    })
+
+    return this.parseResponse<Record<string, unknown>>(res)
   }
 
   async update(

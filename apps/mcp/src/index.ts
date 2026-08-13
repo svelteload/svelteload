@@ -8,6 +8,7 @@ import { registerGetSchema } from './tools/get-schema.js'
 import { registerFind } from './tools/find.js'
 import { registerGetById } from './tools/get-by-id.js'
 import { registerCreate } from './tools/create.js'
+import { registerUpload } from './tools/upload.js'
 import { registerUpdate } from './tools/update.js'
 import { registerGetGlobal } from './tools/get-global.js'
 import { registerUpdateGlobal } from './tools/update-global.js'
@@ -48,6 +49,7 @@ registerGetSchema(server)
 registerFind(server, client)
 registerGetById(server, client)
 registerCreate(server, client)
+registerUpload(server, client)
 registerUpdate(server, client)
 registerGetGlobal(server, client)
 registerUpdateGlobal(server, client)
