@@ -27,6 +27,7 @@ const DOC_SWITCHER_BASE_EXCLUDE = [
   'preview-keys',
   'access-logs',
   'media',
+  'private-media',
   'content-review-notes',
 ]
 

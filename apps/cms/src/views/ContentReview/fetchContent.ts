@@ -63,6 +63,7 @@ const SKIP_FIELDS = new Set([
 const SYSTEM_SLUGS = new Set([
   'users',
   'media',
+  'private-media',
   'payload-preferences',
   'payload-migrations',
   'payload-locked-documents',

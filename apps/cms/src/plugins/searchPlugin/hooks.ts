@@ -9,6 +9,7 @@ import { ensureSearchSchema } from './setup'
 export const SYSTEM_COLLECTIONS = new Set([
   'users',
   'media',
+  'private-media',
   'payload-preferences',
   'payload-migrations',
   'content-review-notes',
