@@ -95,6 +95,7 @@ function _insertTagsField(fields: any[], tagsField: any[]): any[] {
 function _buildBlogPostsBase(): CollectionConfig {
     return {
     slug: 'blog',
+    trash: true,
     labels: {
         singular: 'Blog Post',
         plural: 'Blog Posts',

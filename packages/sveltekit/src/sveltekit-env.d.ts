@@ -24,6 +24,7 @@ declare namespace App {
     interface Locals {
         isPreview: boolean
         isInIframe: boolean
+        previewUser?: boolean
     }
 }
 

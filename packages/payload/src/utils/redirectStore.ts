@@ -151,6 +151,43 @@ export const promotePendingRedirects = async ({ payload, collectionSlug, docId }
         return mine.length
     })
 
+export const appendRedirect = async ({ payload, from, to }: { payload: Payload; from: string; to: string }): Promise<void> => {
+    if (!from || !to || from === to) return
+
+    await serialize(async () => {
+        const global = (await payload.findGlobal({
+            slug: 'url-redirects' as never,
+            depth: 0,
+            overrideAccess: true,
+        })) as { redirects?: RedirectEntry[] | null } | null
+
+        let redirects: RedirectEntry[] = [...(global?.redirects ?? [])]
+
+        for (const existing of redirects) {
+            if (existing.to === from) existing.to = to
+        }
+
+        const index = redirects.findIndex((existing) => existing.from === from)
+        if (index >= 0) {
+            redirects[index] = { ...redirects[index], to }
+        } else {
+            redirects.push({ from, to })
+        }
+
+        redirects = redirects.filter(
+            (existing) => existing.from && existing.to && existing.from !== existing.to && existing.from !== to,
+        )
+
+        await payload.updateGlobal({
+            slug: 'url-redirects' as never,
+            data: { redirects } as never,
+            depth: 0,
+            overrideAccess: true,
+            context: { bypassHooks: true },
+        })
+    })
+}
+
 export const dropPendingRedirects = async ({ payload, collectionSlug, docId }: Target): Promise<void> => {
     await serialize(async () => {
         const pending = await readPending(payload)

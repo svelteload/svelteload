@@ -6,6 +6,8 @@ import { payloadConfigBase } from 'payload-config/payload-base.config'
 import { projectMeta } from 'project-meta/projectMeta'
 import { validatePreviewToken, PREVIEW_COOKIE_NAME, PREVIEW_QUERY_PARAM } from './previewAuth'
 import { resolveAdminUrlForPath } from './resolveAdminUrlForPath'
+import { AUTH_COOKIE_NAME, verifySessionToken } from './sessionUser'
+import { getPayloadInstance } from './payload'
 
 const PREVIEW_HOST: string | null = (() => {
     if (!PUBLIC_PREVIEW_URL) return null
@@ -32,11 +34,9 @@ function escapeHtmlAttr(value: string): string {
     return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-function renderGatekeeperHtml(adminUrl: string | undefined, deepLinkUrl: string | null): string {
+function renderPreviewLoginHtml(adminUrl: string | undefined, deepLinkUrl: string | null, error?: string): string {
     const target = deepLinkUrl ?? adminUrl
-    const cmsButton = target
-        ? `<a class="cta-button" href="${escapeHtmlAttr(target)}">Open CMS</a>`
-        : ''
+    const cmsLink = target ? `<a class="secondary" href="${escapeHtmlAttr(target)}">Open the CMS instead</a>` : ''
     const gatekeeper = (projectMeta as { gatekeeper?: { bg?: string; fg?: string } }).gatekeeper ?? {}
     const bg = gatekeeper.bg ?? '#ffffff'
     const fg = gatekeeper.fg ?? '#000000'
@@ -46,23 +46,33 @@ function renderGatekeeperHtml(adminUrl: string | undefined, deepLinkUrl: string 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>Authenticated access only</title>
+<title>Sign in to view this draft</title>
 <style>
   :root { color-scheme: light; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; min-height: 100vh; display: grid; place-items: center; background: ${bg}; color: ${fg}; padding: 2rem; }
-  main { max-width: 520px; text-align: center; }
-  h1 { font-size: 1.5rem; margin: 0 0 1rem; }
-  p { line-height: 1.5; margin: 0 0 0.75rem; }
-  .cta-button { display: inline-block; margin: 1.5rem 0; padding: 14px 32px; background: ${fg}; color: ${bg}; box-shadow: inset 0 0 0 1px ${fg}; text-decoration: none; border: none; border-radius: 4px; font-size: 16px; font-family: inherit; cursor: pointer; transition: all 0.3s ease; }
-  .cta-button:hover { background: transparent; color: ${fg}; }
+  main { max-width: 24rem; width: 100%; }
+  h1 { font-size: 1.35rem; margin: 0 0 0.5rem; }
+  p { line-height: 1.55; margin: 0 0 1.5rem; opacity: 0.75; font-size: 0.92rem; }
+  label { display: block; font-size: 0.8rem; margin: 0 0 0.35rem; opacity: 0.8; }
+  input { width: 100%; box-sizing: border-box; padding: 0.65rem 0.75rem; margin: 0 0 1rem; border-radius: 6px; border: 1px solid ${fg}33; background: transparent; color: ${fg}; font-size: 0.95rem; font-family: inherit; }
+  button { width: 100%; padding: 0.7rem; background: ${fg}; color: ${bg}; border: 0; border-radius: 6px; font-size: 0.95rem; font-weight: 600; font-family: inherit; cursor: pointer; }
+  .secondary { display: block; margin-top: 1.25rem; text-align: center; color: ${fg}; opacity: 0.6; font-size: 0.85rem; }
+  .err { border: 1px solid #b4444488; background: #b4444422; padding: 0.6rem 0.75rem; border-radius: 6px; margin: 0 0 1rem; font-size: 0.85rem; }
 </style>
 </head>
 <body>
 <main>
-<h1>Authenticated access only</h1>
-<p>This is a preview environment. Content editors can view it by opening the CMS and clicking the <strong>Live preview</strong> eye icon on any page.</p>
-${cmsButton}
-<p>If someone shared a preview link with you, it may have expired. Ask them to open live preview again and share the refreshed link.</p>
+<h1>Sign in to view this draft</h1>
+<p>This is the preview site. Sign in with your website account to read unpublished changes and publish them when they look right.</p>
+<form method="post">
+${error ? `<div class="err">${escapeHtmlAttr(error)}</div>` : ''}
+<label for="email">Email</label>
+<input id="email" name="email" type="email" autocomplete="username" required>
+<label for="password">Password</label>
+<input id="password" name="password" type="password" autocomplete="current-password" required>
+<button type="submit">Sign in</button>
+</form>
+${cmsLink}
 </main>
 </body>
 </html>`
@@ -119,6 +129,47 @@ async function previewAuthOk(event: Parameters<Handle>[0]['event']): Promise<boo
     }
 
     return false
+}
+
+function previewSessionOk(event: Parameters<Handle>[0]['event']): boolean {
+    const token = event.cookies.get(AUTH_COOKIE_NAME)
+    if (!token) return false
+    if (verifySessionToken(token) !== null) return true
+    event.cookies.delete(AUTH_COOKIE_NAME, { path: '/' })
+    return false
+}
+
+async function attemptPreviewLogin(event: Parameters<Handle>[0]['event']): Promise<'ok' | 'failed' | 'skip'> {
+    if (event.request.method !== 'POST') return 'skip'
+
+    let form: FormData
+    try {
+        form = await event.request.formData()
+    } catch (_) {
+        return 'skip'
+    }
+
+    const email = String(form.get('email') ?? '').trim()
+    const password = String(form.get('password') ?? '')
+    if (!email || !password) return 'skip'
+
+    try {
+        const payload = await getPayloadInstance()
+        const result = await payload.login({ collection: 'users' as any, data: { email, password } })
+        const token = (result as { token?: string }).token
+        if (!token) return 'failed'
+
+        event.cookies.set(AUTH_COOKIE_NAME, token, {
+            path: '/',
+            httpOnly: true,
+            secure: true,
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60,
+        })
+        return 'ok'
+    } catch (_) {
+        return 'failed'
+    }
 }
 
 function isStaticAsset(pathname: string): boolean {
@@ -178,15 +229,28 @@ export const handle: Handle = async ({ event, resolve }) => {
     event.locals.isPreview = isPreviewHost || VERCEL_ENV === 'development'
     event.locals.isInIframe = request.headers.get('sec-fetch-dest') === 'iframe'
 
-    if (isPreviewHost && !isStaticAsset(url.pathname) && !(await previewAuthOk(event))) {
-        const deepLinkUrl = await resolveAdminUrlForPath(url.pathname, adminUrl).catch(() => null)
-        return new Response(renderGatekeeperHtml(adminUrl, deepLinkUrl), {
-            status: 401,
-            headers: {
-                'content-type': 'text/html; charset=utf-8',
-                'x-robots-tag': 'noindex, nofollow',
-            },
-        })
+    if (isPreviewHost && !isStaticAsset(url.pathname)) {
+        const authorised = previewSessionOk(event) || (await previewAuthOk(event))
+
+        if (!authorised) {
+            const attempt = await attemptPreviewLogin(event)
+
+            if (attempt === 'ok') {
+                return new Response(null, { status: 303, headers: { Location: url.pathname + url.search } })
+            }
+
+            const deepLinkUrl = await resolveAdminUrlForPath(url.pathname, adminUrl).catch(() => null)
+            const error = attempt === 'failed' ? 'Those details did not match an account on this site.' : undefined
+            return new Response(renderPreviewLoginHtml(adminUrl, deepLinkUrl, error), {
+                status: 401,
+                headers: {
+                    'content-type': 'text/html; charset=utf-8',
+                    'x-robots-tag': 'noindex, nofollow',
+                },
+            })
+        }
+
+        event.locals.previewUser = previewSessionOk(event)
     }
 
     const localeConfig = getLocaleConfig()
