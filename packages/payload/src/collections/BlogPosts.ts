@@ -4,6 +4,7 @@ import { generateSlugFromName } from '../utils/generateSlugFromName'
 import { cleanLexicalContent, extractPlainTextFromLexical } from '../utils/extractPlainTextFromLexical'
 import { buildLandingBoundPathsHook } from '../utils/buildLandingBoundPathsHook'
 import { redirectCleanupHook, redirectStagingHook } from '../utils/buildRedirectHooks'
+import { denyAgentPublish } from '../utils/denyAgentPublish'
 
 const TITLE_MAX_LENGTH = 100
 const DESCRIPTION_MAX_LENGTH = 200
@@ -214,6 +215,7 @@ function _buildBlogPostsBase(): CollectionConfig {
     ],
     hooks: {
         beforeChange: [
+            denyAgentPublish,
             async ({ data, req }) => {
                 if (req.context?.bypassHooks) return data
 

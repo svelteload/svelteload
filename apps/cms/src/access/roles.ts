@@ -20,6 +20,17 @@ export const minRole = (min: UserRole): Access => ({ req }) =>
 export const minRoleField = (min: UserRole): FieldAccess => ({ req }) =>
   rank(getUserRole(req.user)) >= rank(min)
 
+export const isAgent = (user: unknown): boolean => getUserRole(user) === 'agent'
+
+export const denyAgents: Access = ({ req }) => !isAgent(req.user)
+
+const allOf = (...checks: Access[]): Access => async (args) => {
+  for (const check of checks) {
+    if ((await check(args)) !== true) return false
+  }
+  return true
+}
+
 type Tier = 'editor' | 'internal' | 'agent' | 'admin'
 
 const COLLECTION_TIERS: Record<Tier, NonNullable<CollectionConfig['access']>> = {
@@ -27,13 +38,13 @@ const COLLECTION_TIERS: Record<Tier, NonNullable<CollectionConfig['access']>> = 
     read: () => true,
     create: minRole('contributor'),
     update: minRole('contributor'),
-    delete: minRole('contributor'),
+    delete: allOf(minRole('contributor'), denyAgents),
   },
   internal: {
     read: minRole('reader'),
     create: minRole('contributor'),
     update: minRole('contributor'),
-    delete: minRole('contributor'),
+    delete: allOf(minRole('contributor'), denyAgents),
   },
   agent: {
     read: minRole('agent'),
