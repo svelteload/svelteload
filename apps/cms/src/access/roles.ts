@@ -1,4 +1,5 @@
 import type { Access, FieldAccess, CollectionConfig, GlobalConfig } from 'payload'
+import { MCP_SCOPES, mcpScopesFromRequest } from '@svelteload/payload/utils/mcpScopes'
 
 export type UserRole = 'admin' | 'agent' | 'editor' | 'contributor' | 'reader'
 
@@ -31,6 +32,13 @@ const allOf = (...checks: Access[]): Access => async (args) => {
   return true
 }
 
+export const mcpRequiresScope = (scope: string): Access => ({ req }) => {
+  const scopes = mcpScopesFromRequest(req)
+  if (!scopes) return true
+  return scopes.includes(scope)
+}
+
+
 type Tier = 'editor' | 'internal' | 'agent' | 'admin'
 
 const COLLECTION_TIERS: Record<Tier, NonNullable<CollectionConfig['access']>> = {
@@ -38,13 +46,13 @@ const COLLECTION_TIERS: Record<Tier, NonNullable<CollectionConfig['access']>> = 
     read: () => true,
     create: minRole('contributor'),
     update: minRole('contributor'),
-    delete: allOf(minRole('contributor'), denyAgents),
+    delete: allOf(minRole('contributor'), denyAgents, mcpRequiresScope(MCP_SCOPES.contentDelete)),
   },
   internal: {
     read: minRole('reader'),
     create: minRole('contributor'),
     update: minRole('contributor'),
-    delete: allOf(minRole('contributor'), denyAgents),
+    delete: allOf(minRole('contributor'), denyAgents, mcpRequiresScope(MCP_SCOPES.contentDelete)),
   },
   agent: {
     read: minRole('agent'),
@@ -61,8 +69,8 @@ const COLLECTION_TIERS: Record<Tier, NonNullable<CollectionConfig['access']>> = 
 }
 
 const GLOBAL_TIERS: Record<Tier, NonNullable<GlobalConfig['access']>> = {
-  editor:   { read: () => true,         update: minRole('contributor') },
-  internal: { read: minRole('reader'),  update: minRole('contributor') },
+  editor:   { read: () => true,         update: allOf(minRole('contributor'), mcpRequiresScope(MCP_SCOPES.globalsWrite)) },
+  internal: { read: minRole('reader'),  update: allOf(minRole('contributor'), mcpRequiresScope(MCP_SCOPES.globalsWrite)) },
   agent:    { read: minRole('agent'),   update: minRole('admin') },
   admin:    { read: minRole('admin'),   update: minRole('admin') },
 }
