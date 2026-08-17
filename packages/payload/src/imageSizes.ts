@@ -1,5 +1,11 @@
 import type { ImageSize } from 'payload'
 
+/**
+ * Longest side an uploaded original is kept at. Sits above `massive` on purpose, so the
+ * stored original stays a usable master for full-bleed art instead of duplicating it.
+ */
+export const MAX_UPLOAD_DIMENSION = 3840
+
 export const BASE_IMAGE_SIZES: ImageSize[] = [
     { name: 'thumbnail', width: 300, formatOptions: { format: 'webp', options: { quality: 75 } } },
     { name: 'small', width: 480, formatOptions: { format: 'webp', options: { quality: 75 } } },

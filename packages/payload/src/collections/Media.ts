@@ -1,7 +1,7 @@
 import type { CollectionConfig } from 'payload'
 import { minRoleField, setAccess } from '@cms/access/roles'
 import { projectMeta } from 'project-meta/projectMeta'
-import { BASE_IMAGE_SIZES } from '../imageSizes'
+import { BASE_IMAGE_SIZES, MAX_UPLOAD_DIMENSION } from '../imageSizes'
 import { UPLOAD_MIME_TYPES } from '../uploadMimeTypes'
 import { sanitizeUploadFilename } from '../utils/sanitizeUploadFilename'
 
@@ -118,6 +118,12 @@ export const Media: CollectionConfig = {
     ],
     upload: {
         mimeTypes: UPLOAD_MIME_TYPES,
+        resizeOptions: {
+            width: MAX_UPLOAD_DIMENSION,
+            height: MAX_UPLOAD_DIMENSION,
+            fit: 'inside',
+            withoutEnlargement: true,
+        },
         imageSizes: [
             ...BASE_IMAGE_SIZES,
             ...projectMeta.additionalImageSizes,
