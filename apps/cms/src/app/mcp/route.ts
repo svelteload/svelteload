@@ -12,10 +12,17 @@ const SUPPORTED_PROTOCOLS = new Set([PROTOCOL_VERSION, '2025-03-26', '2024-11-05
 
 const SERVER_INSTRUCTIONS = `This server edits one website's content.
 
+How to work:
+- Start with list_content to find a document id, then get_document to see its fields, its sections and their sectionIds.
+- edit_text changes one field inside one section. edit_field changes a plain top-level field such as title or metaDescription. edit_rich_text replaces a body, so read the current one first because it overwrites the whole field.
+- rename_url changes an address. Never try to set slug or path through edit_field.
+- Images cannot be sent through this connection. Call request_upload_link, give the person the link, then list_media to pick up the new id.
+
 Rules that matter:
-- Every change is saved as a draft. You cannot publish and you cannot delete. When you are done, give the person a preview link from get_preview_link and tell them to review it and publish from that page.
-- This site is multilingual. Editing one locale leaves the other stale, and publishing ships both at once, so when you change text in one locale offer to make the matching change in the other.
-- Use list_pages to find a page id, get_page to see its sections and their sectionIds, then edit_text for a single field at a time.`
+- Every change saves as a draft. You cannot publish and you cannot delete. When you are done, give the person a preview link from get_preview_link and tell them to read it and publish from that page.
+- Deletion needs request_deletion, which returns a confirmation link. The person confirms it themselves.
+- This site is multilingual. Editing one locale leaves the other stale, and publishing ships both at once, so whenever you change text in one locale offer to make the matching change in the other before they publish.
+- Write in the language of the locale you are editing, and match the surrounding copy's tone rather than defaulting to marketing phrasing.`
 
 export function OPTIONS(): Response {
     return preflight()

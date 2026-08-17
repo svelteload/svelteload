@@ -30,6 +30,10 @@ const collectionEnum = {
     description: 'Which kind of document. Defaults to "pages".',
 }
 
+const PLAIN_TEXT_FIELDS = new Set(['name', 'title', 'metaTitle', 'metaDescription', 'excerpt', 'subtitle', 'summary'])
+
+const MAX_META_DESCRIPTION = 200
+
 const resolveCollection = (value: unknown): string => {
     const slug = typeof value === 'string' && value ? value : 'pages'
     if (!(EDITABLE_COLLECTIONS as readonly string[]).includes(slug)) {
@@ -221,15 +225,14 @@ export const TOOLS: McpTool[] = [
     },
     {
         name: 'edit_field',
-        description:
-            'Change a top-level text field on a document, such as title, metaTitle or metaDescription, in one locale. Saves as a draft.',
+        description: `Change one plain text field on a document in one locale. Saves as a draft. Allowed fields: ${[...PLAIN_TEXT_FIELDS].join(', ')}. Use edit_text for section content, edit_rich_text for a body, and rename_url to change an address.`,
         scope: MCP_SCOPES.contentWrite,
         inputSchema: {
             type: 'object',
             properties: {
                 collection: collectionEnum,
                 id: { type: ['string', 'number'] },
-                field: { type: 'string' },
+                field: { type: 'string', enum: [...PLAIN_TEXT_FIELDS] },
                 locale: { type: 'string' },
                 value: { type: 'string' },
             },
@@ -238,11 +241,16 @@ export const TOOLS: McpTool[] = [
         },
         run: async (args, ctx) => {
             const collection = resolveCollection(args.collection)
-            if (args.field === 'sections' || args.field === 'content') {
-                return `Use edit_text for section content. "${args.field}" cannot be set as plain text.`
+
+            if (!PLAIN_TEXT_FIELDS.has(args.field)) {
+                if (args.field === 'sections') return 'Use edit_text to change a section.'
+                if (args.field === 'content' || args.field === 'body') return 'Use edit_rich_text to change a body.'
+                if (args.field === 'slug' || args.field === 'path') return 'Use rename_url to change an address, so the old one gets redirected.'
+                return `"${args.field}" cannot be set through this connection. Editable fields are: ${[...PLAIN_TEXT_FIELDS].join(', ')}.`
             }
-            if (args.field === 'metaDescription' && String(args.value).length > 200) {
-                return 'metaDescription is capped at 200 characters by the schema. Shorten it and try again.'
+
+            if (args.field === 'metaDescription' && String(args.value).length > MAX_META_DESCRIPTION) {
+                return `metaDescription is capped at ${MAX_META_DESCRIPTION} characters by the schema. It is currently ${String(args.value).length}. Shorten it and try again.`
             }
 
             const payload = await payloadFor()
@@ -258,6 +266,68 @@ export const TOOLS: McpTool[] = [
             })
 
             return `Saved as a draft. ${collection} ${args.id} field "${args.field}" (${args.locale}) is now:\n${args.value}`
+        },
+    },
+    {
+        name: 'rename_url',
+        description:
+            'Change the address of a document in one locale. Saves as a draft. When it is published the old address is redirected to the new one automatically, so existing links and search results keep working. For pages give a full path starting with /; for posts, projects and tools give just the slug.',
+        scope: MCP_SCOPES.contentWrite,
+        inputSchema: {
+            type: 'object',
+            properties: {
+                collection: collectionEnum,
+                id: { type: ['string', 'number'] },
+                locale: { type: 'string' },
+                value: { type: 'string', description: 'Full path for pages (e.g. /services/imports), or a bare slug for other collections (e.g. our-new-post)' },
+            },
+            required: ['id', 'locale', 'value'],
+            additionalProperties: false,
+        },
+        run: async (args, ctx) => {
+            const collection = resolveCollection(args.collection)
+            const field = collection === 'pages' ? 'path' : 'slug'
+            const value = String(args.value).trim()
+
+            if (!value) return 'Give the new address.'
+
+            if (field === 'path') {
+                if (!value.startsWith('/')) return 'A page path has to start with /.'
+            } else {
+                if (value.includes('/')) return 'Give just the slug, without slashes. The section prefix comes from the landing page.'
+                if (!/^[a-z0-9][a-z0-9-]*$/.test(value)) {
+                    return 'A slug should be lower case letters, numbers and hyphens only.'
+                }
+            }
+
+            const payload = await payloadFor()
+            const doc = await loadDoc(collection, args.id, args.locale, ctx)
+            const previous = doc[field]
+
+            if (previous === value) return `That is already the address. Nothing changed.`
+
+            await payload.update({
+                collection: collection as never,
+                id: args.id,
+                locale: args.locale,
+                draft: true,
+                data: { ...identifyingFields(doc), [field]: value, _status: 'draft' } as never,
+                ...callArgs(ctx),
+            })
+
+            const updated = await loadDoc(collection, args.id, undefined, ctx)
+            const paths = Object.entries(updated.localizedPaths ?? {})
+                .map(([locale, path]) => `  ${locale}: ${path}`)
+                .join('\n')
+
+            return [
+                `Saved as a draft. ${collection} ${args.id} ${field} for ${args.locale} is now "${value}".`,
+                '',
+                'Addresses after this change:',
+                paths || '  (none yet)',
+                '',
+                `The old address stays live until this is published. On publish it redirects to the new one, so nothing already indexed starts returning 404.`,
+            ].join('\n')
         },
     },
     {
