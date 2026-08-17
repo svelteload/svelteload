@@ -1,5 +1,5 @@
 import type { Handle } from '@sveltejs/kit'
-import { parse } from 'cookie'
+import { parse, serialize } from 'cookie'
 import { PUBLIC_PAYLOAD_ADMIN_URL, PUBLIC_PREVIEW_URL } from '$env/static/public'
 import { VERCEL_ENV } from '$env/static/private'
 import { payloadConfigBase } from 'payload-config/payload-base.config'
@@ -182,36 +182,48 @@ function previewSessionOk(event: Parameters<Handle>[0]['event']): boolean {
     return false
 }
 
-async function attemptPreviewLogin(event: Parameters<Handle>[0]['event']): Promise<'ok' | 'failed' | 'skip'> {
-    if (event.request.method !== 'POST') return 'skip'
+const SESSION_MAX_AGE = 7 * 24 * 60 * 60
+
+// The gate returns its own Response instead of calling resolve(), and SvelteKit only
+// attaches event.cookies.set() to a resolved response. The header has to be explicit.
+// Secure unless the host is literally loopback. Deriving it from the protocol would read a
+// forwarded header, so a proxy reporting http would silently drop Secure in production.
+function sessionCookie(token: string, hostname: string): string {
+    const loopback = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+    return serialize(AUTH_COOKIE_NAME, token, {
+        path: '/',
+        httpOnly: true,
+        secure: !loopback,
+        sameSite: 'lax',
+        maxAge: SESSION_MAX_AGE,
+    })
+}
+
+async function attemptPreviewLogin(
+    event: Parameters<Handle>[0]['event'],
+): Promise<{ status: 'ok'; token: string } | { status: 'failed' | 'skip' }> {
+    if (event.request.method !== 'POST') return { status: 'skip' }
 
     let form: FormData
     try {
         form = await event.request.formData()
     } catch (_) {
-        return 'skip'
+        return { status: 'skip' }
     }
 
     const email = String(form.get('email') ?? '').trim()
     const password = String(form.get('password') ?? '')
-    if (!email || !password) return 'skip'
+    if (!email || !password) return { status: 'skip' }
 
     try {
         const payload = await getPayloadInstance()
         const result = await payload.login({ collection: 'users' as any, data: { email, password } })
         const token = (result as { token?: string }).token
-        if (!token) return 'failed'
+        if (!token) return { status: 'failed' }
 
-        event.cookies.set(AUTH_COOKIE_NAME, token, {
-            path: '/',
-            httpOnly: true,
-            secure: true,
-            sameSite: 'lax',
-            maxAge: 7 * 24 * 60 * 60,
-        })
-        return 'ok'
+        return { status: 'ok', token }
     } catch (_) {
-        return 'failed'
+        return { status: 'failed' }
     }
 }
 
@@ -278,12 +290,18 @@ export const handle: Handle = async ({ event, resolve }) => {
         if (!authorised) {
             const attempt = await attemptPreviewLogin(event)
 
-            if (attempt === 'ok') {
-                return new Response(null, { status: 303, headers: { Location: url.pathname + url.search } })
+            if (attempt.status === 'ok') {
+                return new Response(null, {
+                    status: 303,
+                    headers: {
+                        Location: url.pathname + url.search,
+                        'set-cookie': sessionCookie(attempt.token, url.hostname),
+                    },
+                })
             }
 
             const deepLinkUrl = await resolveAdminUrlForPath(url.pathname, adminUrl).catch(() => null)
-            const error = attempt === 'failed' ? 'Those details did not match an account on this site.' : undefined
+            const error = attempt.status === 'failed' ? 'Those details did not match an account on this site.' : undefined
             return new Response(renderPreviewLoginHtml(adminUrl, deepLinkUrl, error), {
                 status: 401,
                 headers: {
