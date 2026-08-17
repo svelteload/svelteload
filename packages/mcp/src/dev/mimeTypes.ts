@@ -56,4 +56,4 @@ export function mimeTypeForFilename(filename: string): string | null {
   return MIME_BY_EXTENSION[ext] ?? null
 }
 
-export const KNOWN_EXTENSIONS = Object.keys(MIME_BY_EXTENSION)
+const KNOWN_EXTENSIONS = Object.keys(MIME_BY_EXTENSION)

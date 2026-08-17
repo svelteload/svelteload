@@ -1,10 +1,10 @@
 import type { McpTool, ToolContext } from './types'
 
-export const PROTOCOL_VERSION = '2025-06-18'
+const PROTOCOL_VERSION = '2025-06-18'
 
 const SUPPORTED_PROTOCOLS = new Set([PROTOCOL_VERSION, '2025-03-26', '2024-11-05'])
 
-export const SERVER_INSTRUCTIONS = `This server edits one website's content.
+const SERVER_INSTRUCTIONS = `This server edits one website's content.
 
 How to work:
 - Start with list_content to find a document id, then get_document to see its fields, its sections and their sectionIds.
