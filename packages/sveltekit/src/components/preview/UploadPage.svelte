@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PREVIEW_THEME_CSS } from './theme';
+	import { PREVIEW_THEME_CSS, PREVIEW_PAGE_CSS } from './theme';
 
 	let {
 		data,
@@ -60,90 +60,95 @@
 </script>
 
 <svelte:head>
-	{@html `<style>${PREVIEW_THEME_CSS}</style>`}
+	{@html `<style>${PREVIEW_THEME_CSS}${PREVIEW_PAGE_CSS}</style>`}
 	<meta name="robots" content="noindex,nofollow" />
 	<title>Upload images</title>
 </svelte:head>
 
 <main class="sl-preview">
-	{#if data.signedIn}
-		<h1>Upload images</h1>
+	<div class="panel">
+		{#if data.signedIn}
+			<h1>Upload images</h1>
 
-		<input
-			id="sl-files"
-			class="picker"
-			type="file"
-			accept="image/*"
-			multiple
-			onchange={(e) => {
-				const input = e.currentTarget as HTMLInputElement;
-				if (input.files?.length) upload(input.files);
-				input.value = '';
-			}}
-		/>
-		<label
-			for="sl-files"
-			class="drop"
-			class:dragging
-			ondragover={(e) => {
-				e.preventDefault();
-				dragging = true;
-			}}
-			ondragleave={() => (dragging = false)}
-			ondrop={(e) => {
-				e.preventDefault();
-				dragging = false;
-				if (e.dataTransfer?.files?.length) upload(e.dataTransfer.files);
-			}}
-		>
-			<span>{busy ? 'Uploading…' : 'Drop images here, or click to choose'}</span>
-		</label>
-
-		{#if uploaded.length}
-			<ul class="files">
-				{#each uploaded as file}
-					<li>
-						<span class="name">{file.name}</span>
-						<span class="size">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
-					</li>
-				{/each}
-			</ul>
-			<p class="done">You can close this tab.</p>
-		{/if}
-	{:else}
-		<h1>Sign in to upload</h1>
-		<p>Use the same details you sign in to the site with.</p>
-
-		<form method="post">
-			{#if form?.error}<div class="error">{form.error}</div>{/if}
-			<label for="sl-email">Email</label>
-			<input id="sl-email" name="email" type="email" autocomplete="username" required />
-			<label for="sl-password">Password</label>
 			<input
-				id="sl-password"
-				name="password"
-				type="password"
-				autocomplete="current-password"
-				required
+				id="sl-files"
+				class="picker"
+				type="file"
+				accept="image/*"
+				multiple
+				onchange={(e) => {
+					const input = e.currentTarget as HTMLInputElement;
+					if (input.files?.length) upload(input.files);
+					input.value = '';
+				}}
 			/>
-			<button type="submit">Sign in</button>
-		</form>
-	{/if}
+			<label
+				for="sl-files"
+				class="drop"
+				class:dragging
+				ondragover={(e) => {
+					e.preventDefault();
+					dragging = true;
+				}}
+				ondragleave={() => (dragging = false)}
+				ondrop={(e) => {
+					e.preventDefault();
+					dragging = false;
+					if (e.dataTransfer?.files?.length) upload(e.dataTransfer.files);
+				}}
+			>
+				<span>{busy ? 'Uploading…' : 'Drop images here, or click to choose'}</span>
+			</label>
 
-	{#if failure}<div class="error">{failure}</div>{/if}
+			{#if uploaded.length}
+				<ul class="files">
+					{#each uploaded as file}
+						<li>
+							<span class="name">{file.name}</span>
+							<span class="size">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
+						</li>
+					{/each}
+				</ul>
+				<p class="done">You can close this tab.</p>
+			{/if}
+		{:else}
+			<h1>Sign in to upload</h1>
+			<p>Use the same details you sign in to the site with.</p>
+
+			<form method="post">
+				{#if form?.error}<div class="error">{form.error}</div>{/if}
+				<label for="sl-email">Email</label>
+				<input id="sl-email" name="email" type="email" autocomplete="username" required />
+				<label for="sl-password">Password</label>
+				<input
+					id="sl-password"
+					name="password"
+					type="password"
+					autocomplete="current-password"
+					required
+				/>
+				<button type="submit">Sign in</button>
+			</form>
+		{/if}
+
+		{#if failure}<div class="error">{failure}</div>{/if}
+	</div>
 </main>
 
 <style>
 	main {
 		box-sizing: border-box;
 		min-height: 100dvh;
-		display: grid;
-		align-content: start;
-		max-width: 32rem;
-		margin: 0 auto;
-		padding: 3.5rem 1.5rem;
+		display: flex;
+		padding: 2.5rem 1.5rem;
 		background: var(--sl-bg);
 		color: var(--sl-text);
+	}
+
+	.panel {
+		width: 100%;
+		max-width: 32rem;
+		margin: auto;
 	}
 
 	h1 {

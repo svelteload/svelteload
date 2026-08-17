@@ -47,3 +47,19 @@ export const PREVIEW_THEME_CSS = `.sl-preview {
     --sl-error-text: rgb(253, 177, 170);
   }
 }`
+
+/**
+ * Page-level reset for standalone preview routes, where the surface owns the whole
+ * document. Without it the body keeps its default margin and the canvas stays the
+ * browser default, so the surface reads as a lighter column on a darker page.
+ */
+export const PREVIEW_PAGE_CSS = `html, body {
+  margin: 0;
+  background: rgb(255, 255, 255);
+}
+
+@media (prefers-color-scheme: dark) {
+  html, body {
+    background: rgb(20, 20, 20);
+  }
+}`
