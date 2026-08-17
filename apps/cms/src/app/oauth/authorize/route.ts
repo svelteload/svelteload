@@ -1,7 +1,8 @@
+import { headers as nextHeaders } from 'next/headers'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { getUserRole } from '@cms/access/roles'
-import { hashSecret, randomSecret } from '@svelteload/payload/utils/oauthTokens'
+import { hashSecret, randomSecret, consentSignature } from '@svelteload/payload/utils/oauthTokens'
 import { narrowToGrantable, parseScopeString } from '@svelteload/payload/utils/mcpScopes'
 import { AUTH_CODE_TTL_SECONDS } from '@cms/oauth/config'
 
@@ -36,17 +37,8 @@ const readParams = (source: URLSearchParams | FormData): AuthorizeParams => {
     }
 }
 
-const errorPage = (title: string, detail: string, status: number): Response =>
-    new Response(
-        `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><style>
-body{font-family:system-ui,sans-serif;background:#111;color:#eee;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:24px}
-main{max-width:26rem}h1{font-size:1.15rem;margin:0 0 .5rem}p{color:#aaa;line-height:1.55;margin:0}
-</style></head><body><main><h1>${escapeHtml(title)}</h1><p>${escapeHtml(detail)}</p></main></body></html>`,
-        { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
-    )
-
-const consentPage = (params: AuthorizeParams, clientName: string, error?: string): Response => {
-    const hidden = Object.entries({
+const authorizeUrlFrom = (params: AuthorizeParams): string => {
+    const query = new URLSearchParams({
         client_id: params.clientId,
         redirect_uri: params.redirectUri,
         state: params.state,
@@ -55,30 +47,56 @@ const consentPage = (params: AuthorizeParams, clientName: string, error?: string
         code_challenge_method: params.codeChallengeMethod,
         resource: params.resource,
     })
+    return `/oauth/authorize?${query.toString()}`
+}
+
+const PAGE_CSS = `
+body{font-family:system-ui,sans-serif;background:#111;color:#eee;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:24px}
+main,form{width:100%;max-width:24rem}h1{font-size:1.15rem;margin:0 0 .35rem}
+p.lead{color:#aaa;line-height:1.55;margin:0 0 1.25rem;font-size:.9rem}
+ul{margin:0 0 1.25rem;padding-left:1.1rem;color:#aaa;font-size:.85rem;line-height:1.7}
+.who{color:#777;font-size:.8rem;margin:0 0 1.25rem}
+.row{display:flex;gap:.6rem}
+button{flex:1;padding:.65rem;border:0;border-radius:6px;font-size:.95rem;font-weight:600;cursor:pointer}
+button.approve{background:#eee;color:#111}
+button.deny{background:#1c1c1c;color:#ccc;border:1px solid #333}
+`
+
+const errorPage = (title: string, detail: string, status: number): Response =>
+    new Response(
+        `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><style>${PAGE_CSS}</style></head><body><main><h1>${escapeHtml(title)}</h1><p class="lead">${escapeHtml(detail)}</p></main></body></html>`,
+        { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+    )
+
+const consentPage = (
+    params: AuthorizeParams,
+    clientName: string,
+    userLabel: string,
+    consent: string,
+): Response => {
+    const hidden = Object.entries({
+        client_id: params.clientId,
+        redirect_uri: params.redirectUri,
+        state: params.state,
+        scope: params.scope,
+        code_challenge: params.codeChallenge,
+        code_challenge_method: params.codeChallengeMethod,
+        resource: params.resource,
+        consent,
+    })
         .map(([key, value]) => `<input type="hidden" name="${key}" value="${escapeHtml(value)}">`)
         .join('')
 
     return new Response(
-        `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect ${escapeHtml(clientName)}</title><style>
-body{font-family:system-ui,sans-serif;background:#111;color:#eee;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:24px}
-form{width:100%;max-width:22rem}h1{font-size:1.15rem;margin:0 0 .35rem}
-p.lead{color:#aaa;line-height:1.55;margin:0 0 1.5rem;font-size:.9rem}
-label{display:block;font-size:.8rem;color:#bbb;margin:0 0 .35rem}
-input[type=email],input[type=password]{width:100%;box-sizing:border-box;padding:.6rem .7rem;margin:0 0 1rem;background:#1c1c1c;border:1px solid #333;border-radius:6px;color:#eee;font-size:.95rem}
-button{width:100%;padding:.65rem;background:#eee;color:#111;border:0;border-radius:6px;font-size:.95rem;font-weight:600;cursor:pointer}
-ul{margin:0 0 1.5rem;padding-left:1.1rem;color:#aaa;font-size:.85rem;line-height:1.7}
-.err{background:#3b1111;border:1px solid #6b2020;color:#ffb4b4;padding:.6rem .7rem;border-radius:6px;margin:0 0 1rem;font-size:.85rem}
-</style></head><body><form method="post">
+        `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect ${escapeHtml(clientName)}</title><style>${PAGE_CSS}</style></head><body><form method="post">
 <h1>Connect ${escapeHtml(clientName)}</h1>
-<p class="lead">Sign in to let this app read and edit your website content.</p>
-${error ? `<div class="err">${escapeHtml(error)}</div>` : ''}
+<p class="lead">This app is asking to read and edit the content on this site.</p>
 <ul><li>Reads pages, posts and media</li><li>Saves changes as drafts for review</li><li>Cannot publish, and cannot delete anything</li></ul>
+<p class="who">Signed in as ${escapeHtml(userLabel)}</p>
 ${hidden}
-<label for="email">Email</label><input id="email" name="email" type="email" autocomplete="username" required>
-<label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required>
-<button type="submit">Sign in and connect</button>
+<div class="row"><button type="submit" name="decision" value="deny" class="deny">Cancel</button><button type="submit" name="decision" value="approve" class="approve">Connect</button></div>
 </form></body></html>`,
-        { status: error ? 401 : 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+        { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
     )
 }
 
@@ -112,12 +130,31 @@ const validate = async (params: AuthorizeParams) => {
     return { client }
 }
 
+const currentUser = async () => {
+    const payload = await getPayload({ config })
+    const { user } = await payload.auth({ headers: await nextHeaders() })
+    if (!user) return null
+    return user as unknown as Record<string, unknown>
+}
+
+const signIn = (params: AuthorizeParams): Response =>
+    Response.redirect(
+        new URL(`/admin/login?redirect=${encodeURIComponent(authorizeUrlFrom(params))}`, process.env.PUBLIC_PAYLOAD_ADMIN_URL || 'http://localhost:3000').toString(),
+        302,
+    )
+
 export async function GET(request: Request): Promise<Response> {
     const params = readParams(new URL(request.url).searchParams)
     const outcome = await validate(params)
     if (outcome.error) return outcome.error
 
-    return consentPage(params, (outcome.client!.clientName as string) || 'this app')
+    const user = await currentUser()
+    if (!user) return signIn(params)
+
+    const clientName = (outcome.client!.clientName as string) || 'this app'
+    const label = String(user.email ?? user.id ?? 'this account')
+
+    return consentPage(params, clientName, label, consentSignature(request, user.id, params.clientId, params.redirectUri, params.codeChallenge))
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -126,28 +163,27 @@ export async function POST(request: Request): Promise<Response> {
     const outcome = await validate(params)
     if (outcome.error) return outcome.error
 
-    const clientName = (outcome.client!.clientName as string) || 'this app'
-    const email = String(form.get('email') ?? '')
-    const password = String(form.get('password') ?? '')
+    const user = await currentUser()
+    if (!user) return signIn(params)
 
-    const payload = await getPayload({ config })
-
-    let user: Record<string, unknown> | null = null
-    try {
-        const result = await payload.login({
-            collection: 'users',
-            data: { email, password },
-        })
-        user = (result.user as Record<string, unknown> | undefined) ?? null
-    } catch (_) {
-        user = null
+    const expected = consentSignature(request, user.id, params.clientId, params.redirectUri, params.codeChallenge)
+    if (String(form.get('consent') ?? '') !== expected) {
+        return errorPage('Request expired', 'This approval did not come from the consent screen, or the sign-in changed while it was open. Start the connection again.', 400)
     }
 
-    if (!user) return consentPage(params, clientName, 'Those details did not match an account on this site.')
+    const target = new URL(params.redirectUri)
+    if (params.state) target.searchParams.set('state', params.state)
+
+    if (String(form.get('decision') ?? '') !== 'approve') {
+        target.searchParams.set('error', 'access_denied')
+        target.searchParams.set('error_description', 'The account holder declined the connection.')
+        return Response.redirect(target.toString(), 302)
+    }
 
     const role = getUserRole(user)
     const granted = narrowToGrantable(parseScopeString(params.scope), role)
 
+    const payload = await getPayload({ config })
     const code = randomSecret(32)
     await payload.create({
         collection: 'oauth-grants' as never,
@@ -165,9 +201,6 @@ export async function POST(request: Request): Promise<Response> {
         overrideAccess: true,
     })
 
-    const target = new URL(params.redirectUri)
     target.searchParams.set('code', code)
-    if (params.state) target.searchParams.set('state', params.state)
-
     return Response.redirect(target.toString(), 302)
 }

@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
+import { projectMeta } from 'project-meta/projectMeta'
 
 const toBase64Url = (input: Buffer | string): string =>
     Buffer.from(input).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
@@ -56,6 +57,29 @@ export const verifyAccessToken = (token: string): AccessTokenClaims | null => {
 export const randomSecret = (bytes = 32): string => toBase64Url(randomBytes(bytes))
 
 export const hashSecret = (value: string): string => createHash('sha256').update(value).digest('hex')
+
+const sessionCookie = (request: Request): string => {
+    const name = projectMeta.cookiePrefix ? `${projectMeta.cookiePrefix}-payload-token` : 'payload-token'
+    const match = (request.headers.get('cookie') ?? '').match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`))
+    return match ? match[1] : ''
+}
+
+/**
+ * Binds the consent form to the session that was shown it, so approval cannot be driven by a
+ * cross-site POST. An attacker cannot read the victim's session cookie, so cannot produce this.
+ */
+export const consentSignature = (
+    request: Request,
+    userId: unknown,
+    clientId: string,
+    redirectUri: string,
+    codeChallenge: string,
+): string =>
+    toBase64Url(
+        createHmac('sha256', signingSecret())
+            .update([sessionCookie(request), String(userId), clientId, redirectUri, codeChallenge].join('|'))
+            .digest(),
+    )
 
 export const verifyPkceChallenge = (verifier: string, challenge: string): boolean => {
     if (!verifier || !challenge) return false
