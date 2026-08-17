@@ -1,5 +1,5 @@
 export type { McpTool, ToolContext } from './types'
 export { dispatchMcpRequest } from './protocol'
-export { TOOLS, toolsForScopes } from './client/tools'
+export { TOOLS, toolsForScopes, CLIENT_INSTRUCTIONS } from './client/tools'
 export { PayloadClient } from './dev/client'
 export { registerDevTools } from './dev/register'

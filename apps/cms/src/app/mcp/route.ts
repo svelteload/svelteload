@@ -2,7 +2,7 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import { verifyAccessToken } from '@svelteload/payload/utils/oauthTokens'
 import { CORS_HEADERS, baseUrlFrom, preflight } from '@cms/oauth/config'
-import { dispatchMcpRequest, toolsForScopes } from '@svelteload/mcp'
+import { dispatchMcpRequest, toolsForScopes, CLIENT_INSTRUCTIONS } from '@svelteload/mcp'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -60,6 +60,7 @@ export async function POST(request: Request): Promise<Response> {
         body,
         tools: toolsForScopes(scopes),
         serverName: 'svelteload-cms',
+        instructions: CLIENT_INSTRUCTIONS,
         ctx: {
             payload,
             user: user as Record<string, unknown>,
