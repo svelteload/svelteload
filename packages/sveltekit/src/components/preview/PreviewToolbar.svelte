@@ -39,14 +39,28 @@
 
 	const confirmMatches = $derived(Boolean(target?.title) && confirmation.trim() === target?.title);
 
+	let openedOn = $state('');
+
 	$effect(() => {
+		const path = page.url.pathname;
 		const params = page.url.searchParams;
-		if (params.has('delete')) panel = 'delete';
-		else if (params.has('upload')) panel = 'upload';
+
+		if (params.has('delete')) {
+			panel = 'delete';
+			openedOn = path;
+		} else if (params.has('upload')) {
+			panel = 'upload';
+			openedOn = path;
+		} else if (openedOn && openedOn !== path) {
+			panel = 'none';
+			openedOn = '';
+			failure = '';
+		}
 	});
 
 	function close() {
 		panel = 'none';
+		openedOn = '';
 		failure = '';
 		const url = new URL(page.url);
 		if (url.searchParams.has('delete') || url.searchParams.has('upload')) {
