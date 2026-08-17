@@ -1,6 +1,5 @@
 import { MCP_SCOPES } from '@svelteload/payload/utils/mcpScopes'
 import type { McpTool, ToolContext } from '../types'
-import { ACTION_TOKEN_TTL_SECONDS, signActionToken } from '@svelteload/payload/utils/actionTokens'
 import {
     lexicalContainsUneditableNodes,
     lexicalToMarkdown,
@@ -92,6 +91,18 @@ const loadDoc = async (collection: string, id: unknown, locale: string | undefin
         draft: true,
         ...callArgs(ctx),
     }) as Promise<any>
+}
+
+const previewUrlFor = async (
+    collection: string,
+    id: unknown,
+    locale: string,
+    ctx: ToolContext,
+): Promise<string | null> => {
+    const doc = await loadDoc(collection, id, undefined, ctx)
+    const path = (doc.localizedPaths ?? {})[locale]
+    if (typeof path !== 'string' || !path) return null
+    return `${ctx.siteUrl}/${locale}${path === '/' ? '' : path}`
 }
 
 const identifyingFields = (doc: any): Record<string, unknown> => {
@@ -579,18 +590,32 @@ export const TOOLS: McpTool[] = [
     {
         name: 'request_upload_link',
         description:
-            'Get a one-time link the person can open to drop an image straight into the media library. Use this whenever they want to add a picture, because images cannot be passed through this connection directly. When they are done, call list_media to pick up the new id.',
+            'Get a link that opens the image uploader on the preview site. Use this whenever the person wants to add a picture, because images cannot be passed through this connection. They must be signed in. When they are done, call list_media to pick up the new id.',
         scope: MCP_SCOPES.mediaWrite,
-        inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-        run: async (_args, ctx) => {
-            const token = signActionToken({ act: 'upload', sub: String(ctx.user.id) }, ACTION_TOKEN_TTL_SECONDS)
-            const url = `${ctx.siteUrl}/preview-upload/${token}`
+        inputSchema: {
+            type: 'object',
+            properties: {
+                collection: collectionEnum,
+                id: { type: ['string', 'number'], description: "Open the uploader on this document's page. Defaults to the site root." },
+                locale: { type: 'string' },
+            },
+            required: ['locale'],
+            additionalProperties: false,
+        },
+        run: async (args, ctx) => {
+            let target = `${ctx.siteUrl}/${args.locale}`
+
+            if (args.id !== undefined && args.id !== null) {
+                const resolved = await previewUrlFor(resolveCollection(args.collection), args.id, args.locale, ctx)
+                if (resolved) target = resolved
+            }
+
             return [
-                'Upload link ready. Show it to them as a clickable markdown link, exactly as written on the next line. Do not put it in a code block or backticks, and do not shorten it.',
+                'Show this to them as a clickable markdown link, exactly as written on the next line. Do not put it in a code block or backticks.',
                 '',
-                `[Upload an image](${url})`,
+                `[Upload an image](${target}?upload=1)`,
                 '',
-                'It works for 30 minutes. Once they say they are done, call list_media to get the new image id.',
+                'It opens the uploader on the preview site. They need to be signed in. Once they are done, call list_media to get the new image id.',
             ].join('\n')
         },
     },
@@ -629,35 +654,32 @@ export const TOOLS: McpTool[] = [
     {
         name: 'request_deletion',
         description:
-            'Get a confirmation link for deleting a document. You cannot delete anything yourself. The person opens the link, checks the page, chooses where its old address should redirect, and types the name to confirm.',
+            "Get a link that opens the delete confirmation on the document's own page. You cannot delete anything yourself. They read the page, choose where its old address should redirect, and type the name to confirm.",
         scope: MCP_SCOPES.contentRead,
         inputSchema: {
             type: 'object',
             properties: {
                 collection: collectionEnum,
                 id: { type: ['string', 'number'] },
+                locale: { type: 'string' },
             },
-            required: ['id'],
+            required: ['id', 'locale'],
             additionalProperties: false,
         },
         run: async (args, ctx) => {
             const collection = resolveCollection(args.collection)
             const doc = await loadDoc(collection, args.id, undefined, ctx)
             const label = doc.name ?? doc.title
+            const target = await previewUrlFor(collection, args.id, args.locale, ctx)
 
-            const token = signActionToken(
-                { act: 'delete', collection, docId: String(args.id), sub: String(ctx.user.id) },
-                ACTION_TOKEN_TTL_SECONDS,
-            )
-
-            const url = `${ctx.siteUrl}/preview-delete/${token}`
+            if (!target) return `${collection} ${args.id} has no address for locale ${args.locale}, so there is nothing to open.`
 
             return [
                 `Confirmation link for deleting ${JSON.stringify(label)}. Show it as a clickable markdown link, exactly as written on the next line. Do not put it in a code block or backticks.`,
                 '',
-                `[Confirm deleting ${typeof label === 'string' ? label : 'this document'}](${url})`,
+                `[Review and delete ${typeof label === 'string' ? label : 'this document'}](${target}?delete=true)`,
                 '',
-                'It works for 30 minutes and they must be signed in. The page asks where the old address should redirect to, so nothing already indexed starts returning 404, and it makes them type the name to confirm.',
+                'It opens the page itself with a confirmation prompt over it. They must be signed in, they choose where the old address redirects so nothing indexed starts returning 404, and they have to type the name to confirm.',
             ].join('\n')
         },
     },

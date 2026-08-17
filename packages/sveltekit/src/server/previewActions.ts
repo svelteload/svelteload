@@ -1,7 +1,6 @@
 import { json, type RequestHandler } from '@sveltejs/kit'
 import { getPayloadInstance } from './payload'
 import { AUTH_COOKIE_NAME, verifySessionToken, type SessionUser } from './sessionUser'
-import { verifyActionToken } from '@svelteload/payload/utils/actionTokens'
 import { appendRedirect, dropPendingRedirects } from '@svelteload/payload/utils/redirectStore'
 
 type Cookies = Parameters<RequestHandler>[0]['cookies']
@@ -83,16 +82,17 @@ export const deleteHandler: RequestHandler = async ({ request, cookies }) => {
     const session = sessionFrom(cookies)
     if (!session) return json({ error: 'Sign in to delete.' }, { status: 401 })
 
-    let body: { token?: string; confirmation?: string; redirectTo?: string }
+    let body: { collection?: string; id?: string | number; confirmation?: string; redirectTo?: string }
     try {
         body = await request.json()
     } catch (_) {
         return json({ error: 'Expected a JSON body.' }, { status: 400 })
     }
 
-    const claims = verifyActionToken(String(body.token ?? ''))
-    if (!claims || claims.act !== 'delete' || !claims.collection || !claims.docId) {
-        return json({ error: 'This deletion link has expired. Ask for a new one.' }, { status: 401 })
+    const collection = body.collection
+    const docId = body.id
+    if (!collection || docId === undefined || docId === null) {
+        return json({ error: 'collection and id are required.' }, { status: 400 })
     }
 
     const payload = await getPayloadInstance()
@@ -101,8 +101,8 @@ export const deleteHandler: RequestHandler = async ({ request, cookies }) => {
 
     const doc: any = await payload
         .findByID({
-            collection: claims.collection as any,
-            id: claims.docId as any,
+            collection: collection as any,
+            id: docId as any,
             locale: 'all' as any,
             draft: true,
             depth: 0,
@@ -126,11 +126,11 @@ export const deleteHandler: RequestHandler = async ({ request, cookies }) => {
         }
     }
 
-    await dropPendingRedirects({ payload, collectionSlug: claims.collection, docId: claims.docId })
+    await dropPendingRedirects({ payload, collectionSlug: collection, docId })
 
     await payload.update({
-        collection: claims.collection as any,
-        id: claims.docId as any,
+        collection: collection as any,
+        id: docId as any,
         draft: true,
         data: { _status: 'draft', deletedAt: new Date().toISOString() } as any,
         user: user as any,
@@ -141,17 +141,15 @@ export const deleteHandler: RequestHandler = async ({ request, cookies }) => {
     return json({ ok: true, redirectTo })
 }
 
-export const uploadHandler: RequestHandler = async ({ request }) => {
+export const uploadHandler: RequestHandler = async ({ request, cookies }) => {
+    const session = sessionFrom(cookies)
+    if (!session) return json({ error: 'Sign in to upload.' }, { status: 401 })
+
     let form: FormData
     try {
         form = await request.formData()
     } catch (_) {
         return json({ error: 'Expected a multipart upload.' }, { status: 400 })
-    }
-
-    const claims = verifyActionToken(String(form.get('token') ?? ''))
-    if (!claims || claims.act !== 'upload') {
-        return json({ error: 'This upload link has expired. Ask for a new one.' }, { status: 401 })
     }
 
     const file = form.get('file')
