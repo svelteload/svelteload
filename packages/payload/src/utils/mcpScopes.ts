@@ -1,7 +1,6 @@
 export const MCP_SCOPES = {
     contentRead: 'content:read',
     contentWrite: 'content:write',
-    mediaWrite: 'media:write',
     globalsWrite: 'globals:write',
     contentPublish: 'content:publish',
     contentDelete: 'content:delete',
@@ -11,16 +10,15 @@ export type McpScope = (typeof MCP_SCOPES)[keyof typeof MCP_SCOPES]
 
 export const ALL_SCOPES = Object.values(MCP_SCOPES) as McpScope[]
 
-const CLIENT_PROFILE: McpScope[] = [MCP_SCOPES.contentRead, MCP_SCOPES.contentWrite, MCP_SCOPES.mediaWrite]
+const CLIENT_PROFILE: McpScope[] = [MCP_SCOPES.contentRead, MCP_SCOPES.contentWrite]
 
 const OPERATOR_PROFILE: McpScope[] = [
     MCP_SCOPES.contentRead,
     MCP_SCOPES.contentWrite,
-    MCP_SCOPES.mediaWrite,
     MCP_SCOPES.globalsWrite,
 ]
 
-export const grantableScopesForRole = (role: string | null | undefined): McpScope[] =>
+const grantableScopesForRole = (role: string | null | undefined): McpScope[] =>
     role === 'admin' || role === 'agent' ? OPERATOR_PROFILE : CLIENT_PROFILE
 
 export const parseScopeString = (raw: string | null | undefined): McpScope[] => {

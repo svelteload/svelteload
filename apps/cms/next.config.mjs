@@ -14,14 +14,6 @@ const nextConfig = {
       { source: '/', destination: '/admin', permanent: true },
     ]
   },
-  async rewrites() {
-    return [
-      { source: '/.well-known/oauth-authorization-server/:path*', destination: '/oauth/metadata/authorization-server' },
-      { source: '/.well-known/oauth-authorization-server', destination: '/oauth/metadata/authorization-server' },
-      { source: '/.well-known/oauth-protected-resource/:path*', destination: '/oauth/metadata/protected-resource' },
-      { source: '/.well-known/oauth-protected-resource', destination: '/oauth/metadata/protected-resource' },
-    ]
-  },
   webpack: (webpackConfig) => {
     webpackConfig.resolve.extensionAlias = {
       '.cjs': ['.cts', '.cjs'],

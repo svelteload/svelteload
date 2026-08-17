@@ -8,6 +8,7 @@ import { validatePreviewToken, PREVIEW_COOKIE_NAME, PREVIEW_QUERY_PARAM } from '
 import { resolveAdminUrlForPath } from './resolveAdminUrlForPath'
 import { AUTH_COOKIE_NAME, verifySessionToken } from './sessionUser'
 import { getPayloadInstance } from './payload'
+import { PREVIEW_THEME_CSS } from '../components/preview/theme'
 
 const PREVIEW_HOST: string | null = (() => {
     if (!PUBLIC_PREVIEW_URL) return null
@@ -47,44 +48,7 @@ function renderPreviewLoginHtml(adminUrl: string | undefined, deepLinkUrl: strin
 <meta name="robots" content="noindex,nofollow">
 <title>Sign in</title>
 <style>
-  :root {
-    color-scheme: light dark;
-    --base-0: rgb(255, 255, 255);
-    --base-100: rgb(235, 235, 235);
-    --base-150: rgb(221, 221, 221);
-    --base-600: rgb(101, 101, 101);
-    --base-750: rgb(60, 60, 60);
-    --base-800: rgb(47, 47, 47);
-    --base-850: rgb(34, 34, 34);
-    --base-900: rgb(20, 20, 20);
-    --base-1000: rgb(0, 0, 0);
-
-    --bg: var(--base-0);
-    --text: var(--base-1000);
-    --muted: var(--base-600);
-    --input-bg: var(--base-0);
-    --border: var(--base-150);
-    --button-bg: var(--base-800);
-    --button-text: var(--base-0);
-    --error-bg: rgb(252, 229, 227);
-    --error-border: rgb(247, 208, 204);
-    --error-text: rgb(144, 44, 43);
-    --required: rgb(218, 75, 72);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: var(--base-900);
-      --text: var(--base-0);
-      --muted: rgb(154, 154, 154);
-      --input-bg: var(--base-850);
-      --border: var(--base-750);
-      --button-bg: var(--base-100);
-      --button-text: var(--base-900);
-      --error-bg: rgb(105, 39, 37);
-      --error-border: rgb(123, 41, 39);
-      --error-text: rgb(253, 177, 170);
-    }
-  }
+${PREVIEW_THEME_CSS}
   *, *::before, *::after { box-sizing: border-box; }
   html, body { margin: 0; }
   body {
@@ -92,57 +56,54 @@ function renderPreviewLoginHtml(adminUrl: string | undefined, deepLinkUrl: strin
     display: grid;
     place-items: center;
     padding: 2.5rem 1.5rem;
-    background: var(--bg);
-    color: var(--text);
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    font-size: 13px;
-    line-height: 1.45;
+    background: var(--sl-bg);
+    color: var(--sl-text);
   }
   main { width: 100%; max-width: 30rem; }
   .logo { display: block; width: 100%; max-width: 17rem; height: auto; margin: 0 0 3rem; }
-  .intro { color: var(--muted); margin: -1.75rem 0 2.25rem; }
+  .intro { color: var(--sl-muted); margin: -1.75rem 0 2.25rem; }
   label { display: block; margin: 0 0 0.5rem; }
-  .req { color: var(--required); }
+  .req { color: var(--sl-required); }
   input {
     width: 100%;
     padding: 0.65rem 0.75rem;
     margin: 0 0 1.5rem;
-    background: var(--input-bg);
-    color: var(--text);
-    border: 1px solid var(--border);
+    background: var(--sl-input-bg);
+    color: var(--sl-text);
+    border: 1px solid var(--sl-border);
     border-radius: 3px;
     font: inherit;
   }
-  input:focus-visible { outline: none; border-color: var(--muted); }
+  input:focus-visible { outline: none; border-color: var(--sl-muted); }
   input:-webkit-autofill,
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus {
-    -webkit-text-fill-color: var(--text);
-    box-shadow: 0 0 0 100px var(--input-bg) inset;
+    -webkit-text-fill-color: var(--sl-text);
+    box-shadow: 0 0 0 100px var(--sl-input-bg) inset;
   }
   button {
     width: 100%;
     padding: 0.7rem;
-    background: var(--button-bg);
-    color: var(--button-text);
+    background: var(--sl-button-bg);
+    color: var(--sl-button-text);
     border: 0;
     border-radius: 3px;
     font: inherit;
     cursor: pointer;
   }
   button:hover { opacity: 0.85; }
-  .alt { display: inline-block; margin-top: 1.5rem; color: var(--text); font-size: 12px; }
+  .alt { display: inline-block; margin-top: 1.5rem; color: var(--sl-text); font-size: 12px; }
   .err {
-    background: var(--error-bg);
-    border: 1px solid var(--error-border);
-    color: var(--error-text);
+    background: var(--sl-error-bg);
+    border: 1px solid var(--sl-error-border);
+    color: var(--sl-error-text);
     padding: 0.6rem 0.75rem;
     border-radius: 3px;
     margin: 0 0 1.5rem;
   }
 </style>
 </head>
-<body>
+<body class="sl-preview">
 <main>
 ${logo}
 <p class="intro">Preview site. Sign in to read drafts and publish them.</p>

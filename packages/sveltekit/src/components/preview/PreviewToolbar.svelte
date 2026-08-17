@@ -309,10 +309,6 @@
 		color: var(--sl-muted);
 	}
 
-	.bar.live .state::before {
-		content: '';
-	}
-
 	.actions {
 		display: flex;
 		align-items: center;
