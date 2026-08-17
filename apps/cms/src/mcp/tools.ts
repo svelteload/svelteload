@@ -2,6 +2,11 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import { MCP_SCOPES, type McpScope } from '@svelteload/payload/utils/mcpScopes'
 import { ACTION_TOKEN_TTL_SECONDS, signActionToken } from '@svelteload/payload/utils/actionTokens'
+import {
+    lexicalContainsUneditableNodes,
+    lexicalToMarkdown,
+    markdownToLexical,
+} from '@svelteload/payload/utils/lexicalText'
 
 export type ToolContext = {
     user: Record<string, unknown>
@@ -45,9 +50,15 @@ const TEXTUAL_KEYS = new Set([
     'heading', 'title', 'name', 'description', 'text', 'label', 'subheading', 'quote', 'caption', 'buttonText', 'eyebrow',
 ])
 
+const isLexical = (value: unknown): boolean =>
+    Boolean(value && typeof value === 'object' && 'root' in (value as Record<string, unknown>))
+
 const summarise = (value: unknown): string | null => {
     if (typeof value === 'string') return value.length > 300 ? `${value.slice(0, 300)}…` : value
-    if (value && typeof value === 'object' && 'root' in (value as Record<string, unknown>)) return '[rich text, edit in the CMS]'
+    if (isLexical(value)) {
+        const markdown = lexicalToMarkdown(value)
+        return markdown ? `[rich text, use edit_rich_text]\n${markdown.replace(/^/gm, '        ')}` : '[empty rich text]'
+    }
     return null
 }
 
@@ -148,8 +159,16 @@ export const TOOLS: McpTool[] = [
             if (sections.length) {
                 lines.push('sections:')
                 lines.push(...sections.map((section: any, index: number) => describeSection(section, index)))
-            } else if (doc.content) {
-                lines.push('  content: [rich text, edit in the CMS]')
+            }
+
+            for (const key of ['content', 'body']) {
+                if (!isLexical(doc[key])) continue
+                const markdown = lexicalToMarkdown(doc[key])
+                lines.push(`${key} (edit with edit_rich_text):`)
+                lines.push(markdown ? markdown.replace(/^/gm, '  ') : '  (empty)')
+                if (lexicalContainsUneditableNodes(doc[key])) {
+                    lines.push('  NOTE: this body embeds images or blocks, so edit_rich_text will refuse to replace it.')
+                }
             }
 
             return lines.join('\n')
@@ -239,6 +258,50 @@ export const TOOLS: McpTool[] = [
             })
 
             return `Saved as a draft. ${collection} ${args.id} field "${args.field}" (${args.locale}) is now:\n${args.value}`
+        },
+    },
+    {
+        name: 'edit_rich_text',
+        description:
+            'Replace the body of a document, such as a blog post, and save as a draft. Write plain prose with a blank line between paragraphs. Use ## for a subheading, - for bullets, > for a quote and **bold** for emphasis. Read the current body with get_document first, because this replaces the whole field rather than editing part of it.',
+        scope: MCP_SCOPES.contentWrite,
+        inputSchema: {
+            type: 'object',
+            properties: {
+                collection: collectionEnum,
+                id: { type: ['string', 'number'] },
+                locale: { type: 'string' },
+                value: { type: 'string' },
+                field: { type: 'string', description: 'Defaults to "content".' },
+            },
+            required: ['id', 'locale', 'value'],
+            additionalProperties: false,
+        },
+        run: async (args, ctx) => {
+            const collection = resolveCollection(args.collection)
+            const field = typeof args.field === 'string' && args.field ? args.field : 'content'
+            const payload = await payloadFor()
+            const doc = await loadDoc(collection, args.id, args.locale, ctx)
+
+            const existing = doc[field]
+            if (existing !== undefined && existing !== null && !isLexical(existing)) {
+                return `Field "${field}" is not rich text. Use edit_field for plain text or edit_text for section content.`
+            }
+            if (lexicalContainsUneditableNodes(existing)) {
+                return `The current "${field}" embeds images or blocks. Replacing it would delete them, so this has to be edited in the CMS instead.`
+            }
+
+            await payload.update({
+                collection: collection as never,
+                id: args.id,
+                locale: args.locale,
+                draft: true,
+                data: { ...identifyingFields(doc), [field]: markdownToLexical(args.value), _status: 'draft' } as never,
+                ...callArgs(ctx),
+            })
+
+            const roundTrip = lexicalToMarkdown(markdownToLexical(args.value))
+            return `Saved as a draft. ${collection} ${args.id} "${field}" (${args.locale}) now reads:\n\n${roundTrip}`
         },
     },
     {

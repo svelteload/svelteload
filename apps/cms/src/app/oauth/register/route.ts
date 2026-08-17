@@ -5,6 +5,8 @@ import { CORS_HEADERS, preflight } from '@cms/oauth/config'
 
 export const dynamic = 'force-dynamic'
 
+const REGISTRATIONS_PER_HOUR = 20
+
 export function OPTIONS(): Response {
     return preflight()
 }
@@ -40,6 +42,23 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const payload = await getPayload({ config })
+
+    const recent = await payload.count({
+        collection: 'oauth-clients' as never,
+        where: { createdAt: { greater_than: new Date(Date.now() - 60 * 60 * 1000).toISOString() } },
+        overrideAccess: true,
+    })
+
+    if (recent.totalDocs >= REGISTRATIONS_PER_HOUR) {
+        return Response.json(
+            {
+                error: 'temporarily_unavailable',
+                error_description: 'Too many apps have registered recently. Try again later.',
+            },
+            { status: 429, headers: { ...CORS_HEADERS, 'Retry-After': '3600' } },
+        )
+    }
+
     const clientId = randomSecret(24)
 
     await payload.create({
