@@ -1,7 +1,7 @@
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { verifyAccessToken } from '@svelteload/payload/utils/oauthTokens'
-import { CORS_HEADERS, baseUrlFrom, preflight } from '@cms/oauth/config'
+import { CORS_HEADERS, baseUrlFrom, preflight, resourceUrlFrom } from '@cms/oauth/config'
 import { dispatchMcpRequest, toolsForScopes, CLIENT_INSTRUCTIONS } from '@svelteload/mcp'
 
 export const dynamic = 'force-dynamic'
@@ -36,6 +36,10 @@ export async function POST(request: Request): Promise<Response> {
 
     const claims = verifyAccessToken(authorization.slice(7).trim())
     if (!claims) return unauthorized(request, 'The access token is missing, malformed or expired.')
+
+    if (claims.aud !== resourceUrlFrom(request)) {
+        return unauthorized(request, 'This access token was issued for a different resource.')
+    }
 
     const payload = await getPayload({ config })
     const user = await payload

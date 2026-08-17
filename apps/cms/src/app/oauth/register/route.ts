@@ -36,8 +36,12 @@ export async function POST(request: Request): Promise<Response> {
             return invalid(`redirect_uri "${uri}" is not a valid absolute URI.`)
         }
         const isLoopback = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '::1'
-        if (parsed.protocol !== 'https:' && !isLoopback && parsed.protocol === 'http:') {
+        const isNativeScheme = /^[a-z][a-z0-9+.-]*:$/.test(parsed.protocol) && parsed.protocol.includes('.')
+        if (parsed.protocol === 'http:' && !isLoopback) {
             return invalid(`redirect_uri "${uri}" must use https unless it points at loopback.`)
+        }
+        if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:' && !isNativeScheme) {
+            return invalid(`redirect_uri "${uri}" must use https, loopback http, or a reverse-domain app scheme.`)
         }
     }
 
