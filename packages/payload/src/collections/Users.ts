@@ -8,6 +8,9 @@ import { projectMeta } from 'project-meta/projectMeta'
 const adminUrl = process.env.PUBLIC_PAYLOAD_ADMIN_URL || 'http://localhost:3000'
 const frontendUrl = process.env.PUBLIC_SITE_URL || 'http://localhost:5173'
 
+const deployed = Boolean(process.env.VERCEL_ENV) && process.env.VERCEL_ENV !== 'development'
+const cookieDomain = deployed ? projectMeta.cookieDomain : undefined
+
 export const Users: CollectionConfig = {
   slug: 'users',
   admin: {
@@ -37,6 +40,7 @@ export const Users: CollectionConfig = {
     tokenExpiration: 7 * 24 * 60 * 60,
     maxLoginAttempts: 5,
     lockTime: 10 * 60 * 1000,
+    ...(cookieDomain ? { cookies: { domain: cookieDomain } } : {}),
     forgotPassword: {
       expiration: 7 * 24 * 60 * 60 * 1000,
       ...forgotPasswordEmail({

@@ -6,6 +6,15 @@ const prefix = (projectMeta as { cookiePrefix?: string }).cookiePrefix
 
 export const AUTH_COOKIE_NAME = prefix ? `${prefix}-payload-token` : 'payload-token'
 
+// Scoping the cookie to the parent domain is what lets one sign-in cover the CMS and the
+// preview host. Returning undefined off that domain matters as much: a Domain the browser
+// can't match makes it drop the cookie outright, which would break sign-in on localhost.
+export const sessionCookieDomain = (hostname: string): string | undefined => {
+    const domain = (projectMeta as { cookieDomain?: string }).cookieDomain
+    if (!domain) return undefined
+    return hostname === domain || hostname.endsWith(`.${domain}`) ? domain : undefined
+}
+
 export interface SessionUser {
     id: string
     email: string

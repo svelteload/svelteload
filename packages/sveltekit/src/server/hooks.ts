@@ -6,7 +6,7 @@ import { payloadConfigBase } from 'payload-config/payload-base.config'
 import { projectMeta } from 'project-meta/projectMeta'
 import { validatePreviewToken, PREVIEW_COOKIE_NAME, PREVIEW_QUERY_PARAM } from './previewAuth'
 import { resolveAdminUrlForPath } from './resolveAdminUrlForPath'
-import { AUTH_COOKIE_NAME, verifySessionToken } from './sessionUser'
+import { AUTH_COOKIE_NAME, sessionCookieDomain, verifySessionToken } from './sessionUser'
 import { getPayloadInstance } from './payload'
 import { PREVIEW_THEME_CSS } from '../components/preview/theme'
 
@@ -178,7 +178,7 @@ function previewSessionOk(event: Parameters<Handle>[0]['event']): boolean {
     const token = event.cookies.get(AUTH_COOKIE_NAME)
     if (!token) return false
     if (verifySessionToken(token) !== null) return true
-    event.cookies.delete(AUTH_COOKIE_NAME, { path: '/' })
+    event.cookies.delete(AUTH_COOKIE_NAME, { path: '/', domain: sessionCookieDomain(event.url.hostname) })
     return false
 }
 
@@ -190,12 +190,14 @@ const SESSION_MAX_AGE = 7 * 24 * 60 * 60
 // forwarded header, so a proxy reporting http would silently drop Secure in production.
 function sessionCookie(token: string, hostname: string): string {
     const loopback = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+    const domain = sessionCookieDomain(hostname)
     return serialize(AUTH_COOKIE_NAME, token, {
         path: '/',
         httpOnly: true,
         secure: !loopback,
         sameSite: 'lax',
         maxAge: SESSION_MAX_AGE,
+        ...(domain ? { domain } : {}),
     })
 }
 
