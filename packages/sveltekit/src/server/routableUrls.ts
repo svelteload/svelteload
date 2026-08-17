@@ -15,6 +15,7 @@ export type RoutableDoc = {
     collection: string
     id: string | number
     updatedAt: string
+    status?: string
     localizedPaths: Record<string, string>
 }
 
@@ -170,6 +171,7 @@ export async function enumerateRoutableDocs(
                 collection,
                 id: raw.id,
                 updatedAt: raw.updatedAt,
+                status: typeof raw._status === 'string' ? raw._status : undefined,
                 localizedPaths,
             })
         }

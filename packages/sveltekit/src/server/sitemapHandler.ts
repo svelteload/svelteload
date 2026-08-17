@@ -55,7 +55,9 @@ export const GET: RequestHandler = async () => {
     const payload = await getPayloadInstance()
     const baseUrl = PUBLIC_SITE_URL.replace(/\/$/, '')
     const localization = getLocalizationConfig(payload)
-    const docs = await enumerateRoutableDocs(payload, projectMeta)
+    const docs = (await enumerateRoutableDocs(payload, projectMeta)).filter(
+        (doc) => doc.status !== 'draft',
+    )
 
     if (localization && localization.locales.length > 1) {
         const { defaultLocale } = localization
