@@ -1,0 +1,33 @@
+:root {
+    color-scheme: light dark;
+
+    --sl-bg: rgb(255, 255, 255);
+    --sl-text: rgb(0, 0, 0);
+    --sl-muted: rgb(101, 101, 101);
+    --sl-border: rgb(221, 221, 221);
+    --sl-error-bg: rgb(252, 229, 227);
+    --sl-error-border: rgb(247, 208, 204);
+    --sl-error-text: rgb(144, 44, 43);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --sl-bg: rgb(20, 20, 20);
+        --sl-text: rgb(255, 255, 255);
+        --sl-muted: rgb(154, 154, 154);
+        --sl-border: rgb(60, 60, 60);
+        --sl-error-bg: rgb(105, 39, 37);
+        --sl-error-border: rgb(123, 41, 39);
+        --sl-error-text: rgb(253, 177, 170);
+    }
+}
+
+html,
+body {
+    margin: 0;
+    background: var(--sl-bg);
+    color: var(--sl-text);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 13px;
+    line-height: 1.45;
+}

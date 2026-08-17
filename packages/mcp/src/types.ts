@@ -7,6 +7,8 @@ export type ToolContext = {
     scopes: string[]
     /** Preview host, used to build the links handed back to the person being helped. */
     siteUrl: string
+    /** CMS host, for the links that need an admin session rather than a preview one. */
+    cmsUrl: string
 }
 
 export type McpTool = {

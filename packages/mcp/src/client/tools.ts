@@ -625,10 +625,10 @@ export const TOOLS: McpTool[] = [
             return [
                 'Show this to them as a clickable markdown link, exactly as written on the next line. Do not put it in a code block or backticks.',
                 '',
-                `[Upload images](${ctx.siteUrl}/upload)`,
+                `[Upload images](${ctx.cmsUrl}/upload)`,
                 '',
                 `Now call collect_new_images with since="${since}". It waits for the files to arrive and hands you the ids, so do not ask them to confirm, to describe the picture, or to send anything back. They drop the file and that is the whole of their part.`,
-                'They need to be signed in, and the page asks them to if they are not.',
+                'They need to be signed in, and the page sends them to the sign-in screen and back if they are not.',
             ].join('\n')
         },
     },

@@ -66,6 +66,7 @@ export async function POST(request: Request): Promise<Response> {
             user: user as Record<string, unknown>,
             scopes,
             siteUrl: siteUrl.replace(/\/+$/, ''),
+            cmsUrl: baseUrlFrom(request).replace(/\/+$/, ''),
         },
     })
 
