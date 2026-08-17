@@ -1,9 +1,11 @@
-import { json, type RequestHandler } from '@sveltejs/kit'
+import { error, fail, json, type Actions, type RequestHandler, type ServerLoad } from '@sveltejs/kit'
 import { getPayloadInstance } from './payload'
 import { AUTH_COOKIE_NAME, verifySessionToken, type SessionUser } from './sessionUser'
 import { appendRedirect, dropPendingRedirects } from '@svelteload/payload/utils/redirectStore'
 
 type Cookies = Parameters<RequestHandler>[0]['cookies']
+
+const SESSION_MAX_AGE = 7 * 24 * 60 * 60
 
 const sessionFrom = (cookies: Cookies): SessionUser | null => {
     const token = cookies.get(AUTH_COOKIE_NAME)
@@ -156,19 +158,63 @@ export const uploadHandler: RequestHandler = async ({ request, cookies }) => {
     if (!(file instanceof File)) return json({ error: 'No file was attached.' }, { status: 400 })
 
     const payload = await getPayloadInstance()
+    const user = await loadUser(payload, session.id)
+    if (!user) return json({ error: 'That account no longer exists.' }, { status: 401 })
+
     const buffer = Buffer.from(await file.arrayBuffer())
 
     try {
         const doc: any = await payload.create({
             collection: 'media' as any,
-            data: { alt: String(form.get('alt') ?? '') } as any,
+            data: {} as any,
             file: { data: buffer, mimetype: file.type, name: file.name, size: buffer.length },
-            overrideAccess: true,
+            user: user as any,
+            overrideAccess: false,
         })
 
         return json({ ok: true, id: doc.id, filename: doc.filename, width: doc.width, height: doc.height })
     } catch (err) {
-        const message = err instanceof Error ? err.message : String(err)
-        return json({ error: message }, { status: 400 })
+        const forbidden = err instanceof Error && err.name === 'Forbidden'
+        const message = forbidden
+            ? 'This account is not allowed to add images. Ask whoever runs the site for access.'
+            : err instanceof Error
+              ? err.message
+              : String(err)
+        return json({ error: message }, { status: forbidden ? 403 : 400 })
     }
+}
+
+export const uploadPageLoad: ServerLoad = async ({ locals, cookies }) => {
+    if (!(locals as { isPreview?: boolean }).isPreview) error(404, 'Not Found')
+    return { signedIn: sessionFrom(cookies) !== null }
+}
+
+export const uploadPageActions: Actions = {
+    default: async ({ request, cookies, url }) => {
+        const form = await request.formData()
+        const email = String(form.get('email') ?? '').trim()
+        const password = String(form.get('password') ?? '')
+        if (!email || !password) return fail(400, { error: 'Fill in both fields.' })
+
+        const rejected = { error: 'Those details did not match an account on this site.' }
+
+        try {
+            const payload = await getPayloadInstance()
+            const result = await payload.login({ collection: 'users' as any, data: { email, password } })
+            const token = (result as { token?: string }).token
+            if (!token) return fail(401, rejected)
+
+            const loopback = url.hostname === 'localhost' || url.hostname === '127.0.0.1'
+            cookies.set(AUTH_COOKIE_NAME, token, {
+                path: '/',
+                httpOnly: true,
+                secure: !loopback,
+                sameSite: 'lax',
+                maxAge: SESSION_MAX_AGE,
+            })
+            return { signedIn: true }
+        } catch (_) {
+            return fail(401, rejected)
+        }
+    },
 }

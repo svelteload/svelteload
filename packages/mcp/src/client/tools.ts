@@ -105,6 +105,15 @@ const previewUrlFor = async (
     return `${ctx.siteUrl}/${locale}${path === '/' ? '' : path}`
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const localeCodes = (ctx: ToolContext): string[] => {
+    const localization = (ctx.payload as { config?: { localization?: unknown } }).config?.localization
+    const locales = (localization as { locales?: Array<string | { code?: string }> } | undefined)?.locales
+    if (!Array.isArray(locales)) return []
+    return locales.map((entry) => (typeof entry === 'string' ? entry : entry?.code)).filter(Boolean) as string[]
+}
+
 const identifyingFields = (doc: any): Record<string, unknown> => {
     const data: Record<string, unknown> = {}
     if (typeof doc?.slug === 'string' && doc.slug) data.slug = doc.slug
@@ -119,10 +128,11 @@ How to work:
 - create_document makes a new page, post, project or tool as a draft. You do not need the CMS admin for this.
 - edit_text changes one field inside one section. edit_field changes a plain top-level field such as title or metaDescription. edit_rich_text replaces a body, so read the current one first because it overwrites the whole field.
 - rename_url changes an address. Never try to set slug or path through edit_field.
-- Images cannot be sent through this connection, so pasting one into the chat does not reach the site. Give the person a preview link from get_preview_link and ask them to use the Upload image button in the bar at the top. Then call list_media to pick up the new id. Place it with set_section_image for a page section, or set_image for a blog post's main or social image.
+- Images cannot be sent through this connection, so pasting one into the chat does not reach the site. Call request_upload_link, give them the link it returns, then call collect_new_images with the timestamp from the same reply. That waits for the file and hands you the ids by itself. Describe each image with set_image_alt in every locale, then place it with set_section_image for a page section, or set_image for a blog post's main or social image.
 - When a tool hands you a link, relay it as a clickable markdown link in your reply. Never wrap a link in backticks or a code block; it stops being clickable.
 
 Rules that matter:
+- Do the work rather than handing it back. Never ask them to read out an id, a filename, a description or a confirmation that something finished. They drop a file or answer a question about the content; everything after that is yours.
 - Every change saves as a draft. You cannot publish and you cannot delete. When you are done, give the person a preview link from get_preview_link and tell them to read it and publish from that page.
 - Deletion needs request_deletion, which returns a link to the document's own page with a confirmation prompt over it. The person reads the page and confirms it themselves.
 - This site is multilingual. Editing one locale leaves the other stale, and publishing ships both at once, so whenever you change text in one locale offer to make the matching change in the other before they publish.
@@ -601,6 +611,115 @@ export const TOOLS: McpTool[] = [
             return result.docs
                 .map((doc: any) => `id: ${doc.id}  ${doc.filename}  ${doc.width ?? '?'}x${doc.height ?? '?'}  alt: ${JSON.stringify(doc.alt ?? '')}`)
                 .join('\n')
+        },
+    },
+    {
+        name: 'request_upload_link',
+        description:
+            'Get the link the person uses to add images. Call this whenever a picture is needed, because images cannot be passed through this connection. It returns the address and a timestamp; hand over the link and then call collect_new_images with that timestamp, which waits for the upload and reports the ids. Never ask them to read an id back to you.',
+        scope: MCP_SCOPES.contentWrite,
+        inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+        run: async (_args, ctx) => {
+            const since = new Date().toISOString()
+
+            return [
+                'Show this to them as a clickable markdown link, exactly as written on the next line. Do not put it in a code block or backticks.',
+                '',
+                `[Upload images](${ctx.siteUrl}/upload)`,
+                '',
+                `Now call collect_new_images with since="${since}". It waits for the files to arrive and hands you the ids, so do not ask them to confirm, to describe the picture, or to send anything back. They drop the file and that is the whole of their part.`,
+                'They need to be signed in, and the page asks them to if they are not.',
+            ].join('\n')
+        },
+    },
+    {
+        name: 'collect_new_images',
+        description:
+            'Wait for images uploaded after a given moment and return their ids. Call it right after handing over the upload link, with the timestamp that request_upload_link gave you. It holds the connection open for a while, so if it reports nothing yet, simply call it again with the same timestamp.',
+        scope: MCP_SCOPES.contentRead,
+        inputSchema: {
+            type: 'object',
+            properties: {
+                since: { type: 'string', description: 'ISO timestamp from request_upload_link' },
+            },
+            required: ['since'],
+            additionalProperties: false,
+        },
+        run: async (args, ctx) => {
+            const since = new Date(String(args.since ?? ''))
+            if (Number.isNaN(since.getTime())) {
+                return 'Pass "since" as the ISO timestamp that request_upload_link returned.'
+            }
+
+            const deadline = Date.now() + 40_000
+            const payload = ctx.payload
+
+            for (;;) {
+                const result = await payload.find({
+                    collection: 'media' as never,
+                    where: { createdAt: { greater_than: since.toISOString() } } as never,
+                    sort: '-createdAt',
+                    limit: 20,
+                    depth: 0,
+                    ...callArgs(ctx),
+                })
+
+                if (result.docs.length) {
+                    const listed = result.docs
+                        .map((doc: any) => `id: ${doc.id}  ${doc.filename}  ${doc.width ?? '?'}x${doc.height ?? '?'}`)
+                        .join('\n')
+                    const locales = localeCodes(ctx)
+                    const altStep = locales.length
+                        ? `Describe each one with set_image_alt, once per locale (${locales.join(', ')}), before you place it.`
+                        : 'Describe each one with set_image_alt before you place it.'
+
+                    return [
+                        `${result.docs.length} new image${result.docs.length === 1 ? '' : 's'}:`,
+                        '',
+                        listed,
+                        '',
+                        altStep,
+                        'Then place it with set_section_image or set_image, in every locale, and give them a preview link when you are done.',
+                    ].join('\n')
+                }
+
+                if (Date.now() >= deadline) {
+                    return 'Nothing has arrived yet. Call collect_new_images again with the same "since" rather than asking them whether they have uploaded it.'
+                }
+
+                await sleep(2000)
+            }
+        },
+    },
+    {
+        name: 'set_image_alt',
+        description:
+            "Write an image's description, which is what screen readers announce and what shows if the image fails to load. Describe what is in the picture, not the page it sits on. The description is per locale, so set it in each one.",
+        scope: MCP_SCOPES.contentWrite,
+        inputSchema: {
+            type: 'object',
+            properties: {
+                mediaId: { type: ['string', 'number'] },
+                locale: { type: 'string' },
+                alt: { type: 'string' },
+            },
+            required: ['mediaId', 'locale', 'alt'],
+            additionalProperties: false,
+        },
+        run: async (args, ctx) => {
+            const alt = String(args.alt ?? '').trim()
+            if (!alt) return 'Give a description of what is in the picture.'
+
+            const payload = ctx.payload
+            await payload.update({
+                collection: 'media' as never,
+                id: args.mediaId as string | number,
+                locale: args.locale,
+                data: { alt } as never,
+                ...callArgs(ctx),
+            })
+
+            return `Media ${args.mediaId} now reads "${alt}" in ${args.locale}.`
         },
     },
     {

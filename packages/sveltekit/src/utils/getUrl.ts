@@ -1,4 +1,4 @@
-export function getLocalizedUrl(url: string | undefined, locale: string): string {
+export function getLocalizedUrl(url: string | undefined, locale: string | undefined): string {
     if (!url) return '#'
 
     if (url.startsWith('#')) {
@@ -8,6 +8,10 @@ export function getLocalizedUrl(url: string | undefined, locale: string): string
     if (url.startsWith('https://') || url.startsWith('http://')) {
         return url
     }
+
+    // Routes outside [lang=lang] have no locale to prefix with. The hook redirects
+    // the bare path to the visitor's language, so handing it back unprefixed is correct.
+    if (!locale) return url
 
     if (url === '/') {
         return `/${locale}`

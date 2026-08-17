@@ -21,17 +21,10 @@
 	const isDraft = $derived(target?.status !== 'published');
 	const localePaths = $derived(Object.entries(target?.paths ?? {}));
 
-	const MAX_DIMENSION = 2560;
-	const REENCODABLE = new Set(['image/jpeg', 'image/png', 'image/webp']);
-
-	let panel = $state<'none' | 'upload' | 'delete'>('none');
+	let panel = $state<'none' | 'delete'>('none');
 	let busy = $state(false);
 	let failure = $state('');
 	let published = $state(false);
-
-	let alt = $state('');
-	let uploaded = $state<Array<{ id: number; filename: string; width?: number; height?: number }>>([]);
-	let dragging = $state(false);
 
 	let confirmation = $state('');
 	let redirectTo = $state('/');
@@ -90,51 +83,6 @@
 		}
 	}
 
-	async function shrink(file: File): Promise<Blob> {
-		if (!REENCODABLE.has(file.type)) return file;
-
-		const bitmap = await createImageBitmap(file);
-		const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
-		if (scale === 1 && file.size < 3_000_000) return file;
-
-		const canvas = document.createElement('canvas');
-		canvas.width = Math.round(bitmap.width * scale);
-		canvas.height = Math.round(bitmap.height * scale);
-		const context = canvas.getContext('2d');
-		if (!context) return file;
-		context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-
-		return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob ?? file), 'image/webp', 0.9));
-	}
-
-	async function upload(files: FileList | File[]) {
-		if (busy) return;
-		busy = true;
-		failure = '';
-		try {
-			for (const file of Array.from(files)) {
-				const shrunk = await shrink(file);
-				const name = shrunk === file ? file.name : file.name.replace(/\.[^.]+$/, '') + '.webp';
-
-				const body = new FormData();
-				body.set('alt', alt);
-				body.set('file', new File([shrunk], name, { type: shrunk.type || file.type }));
-
-				const response = await fetch('/api/preview/upload', { method: 'POST', body });
-				const result = await response.json();
-				if (!response.ok) {
-					failure = result?.error ?? 'The upload failed.';
-					return;
-				}
-				uploaded = [...uploaded, result];
-			}
-		} catch (err) {
-			failure = err instanceof Error ? err.message : String(err);
-		} finally {
-			busy = false;
-		}
-	}
-
 	async function remove(event: SubmitEvent) {
 		event.preventDefault();
 		if (!target || !confirmMatches || busy) return;
@@ -182,9 +130,6 @@
 		</span>
 
 		<span class="actions">
-			{#if canPublish}
-				<button type="button" onclick={() => (panel = panel === 'upload' ? 'none' : 'upload')}>Upload image</button>
-			{/if}
 			{#if editUrl}
 				<a href={editUrl} rel="noreferrer">Edit draft</a>
 			{/if}
@@ -199,55 +144,7 @@
 	{#if panel !== 'none' && canPublish}
 		<div class="sl-preview sheet">
 			<div class="card">
-				{#if panel === 'upload'}
-					{#if uploaded.length}
-						<h2>Uploaded</h2>
-						<p>Tell your assistant these ids so it can place them.</p>
-						<ul>
-							{#each uploaded as item}
-								<li>{item.id} · {item.filename} · {item.width}×{item.height}</li>
-							{/each}
-						</ul>
-					{:else}
-						<h2>Upload an image</h2>
-						<p>Large photos are shrunk in your browser first, so this works on mobile data.</p>
-					{/if}
-
-					<label for="sl-alt">Describe the image</label>
-					<input id="sl-alt" bind:value={alt} placeholder="What is in the picture?" />
-
-					<div
-						class="drop"
-						class:dragging
-						role="button"
-						tabindex="0"
-						ondragover={(e) => {
-							e.preventDefault();
-							dragging = true;
-						}}
-						ondragleave={() => (dragging = false)}
-						ondrop={(e) => {
-							e.preventDefault();
-							dragging = false;
-							if (e.dataTransfer?.files?.length) upload(e.dataTransfer.files);
-						}}
-					>
-						{#if busy}
-							<span>Uploading…</span>
-						{:else}
-							<span>Drop an image here, or</span>
-							<input
-								type="file"
-								accept="image/*"
-								multiple
-								onchange={(e) => {
-									const input = e.currentTarget as HTMLInputElement;
-									if (input.files?.length) upload(input.files);
-								}}
-							/>
-						{/if}
-					</div>
-				{:else if deleted}
+				{#if deleted}
 					<h2>Deleted</h2>
 					<p>
 						{target.title} is unpublished and in the trash. Its old addresses redirect to {redirectTo}.
@@ -374,29 +271,6 @@
 
 	input:focus-visible {
 		outline: none;
-		border-color: var(--sl-muted);
-	}
-
-	input[type='file'] {
-		width: auto;
-		border: 0;
-		background: none;
-	}
-
-	.drop {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: 0.75rem;
-		min-height: 10rem;
-		margin-top: 1.5rem;
-		border: 1px dashed var(--sl-border);
-		border-radius: 3px;
-		color: var(--sl-muted);
-	}
-
-	.drop.dragging {
 		border-color: var(--sl-muted);
 	}
 
