@@ -60,8 +60,8 @@ ${PREVIEW_THEME_CSS}
     color: var(--sl-text);
   }
   main { width: 100%; max-width: 30rem; }
-  .logo { display: block; width: 100%; max-width: 20rem; height: auto; margin: 0 auto 2.5rem; }
-  .intro { color: var(--sl-muted); text-align: center; margin: 0 0 2.5rem; }
+  .logo { display: block; width: 100%; max-width: 400px; height: auto; max-height: 100px; margin: 0 auto 1rem; }
+  .intro { color: var(--sl-muted); text-align: center; margin: 0 0 2rem; }
   label { display: block; margin: 0 0 0.5rem; }
   .req { color: var(--sl-required); }
   input {
@@ -106,7 +106,7 @@ ${PREVIEW_THEME_CSS}
 <body class="sl-preview">
 <main>
 ${logo}
-<p class="intro">Preview site. Sign in to read drafts and publish them.</p>
+<p class="intro">Preview site. Sign in to review and publish drafts.</p>
 <form method="post">
 ${error ? `<div class="err">${escapeHtmlAttr(error)}</div>` : ''}
 <label for="email">Email <span class="req">*</span></label>
