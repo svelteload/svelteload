@@ -11,7 +11,7 @@
 
 	let busy = $state(false);
 	let failure = $state('');
-	let uploaded = $state(0);
+	let uploaded = $state<Array<{ name: string; size: number }>>([]);
 	let dragging = $state(false);
 
 	async function shrink(file: File): Promise<Blob> {
@@ -49,7 +49,7 @@
 					failure = result?.error ?? 'The upload failed.';
 					return;
 				}
-				uploaded += 1;
+				uploaded = [...uploaded, { name, size: shrunk.size }];
 			}
 		} catch (err) {
 			failure = err instanceof Error ? err.message : String(err);
@@ -68,16 +68,23 @@
 <main class="sl-preview">
 	{#if data.signedIn}
 		<h1>Upload images</h1>
-		<p>
-			They go straight into the site's image library. Your assistant finds them on its own and
-			writes the descriptions, so there is nothing to send back.
-		</p>
 
-		<div
+		<input
+			id="sl-files"
+			class="picker"
+			type="file"
+			accept="image/*"
+			multiple
+			onchange={(e) => {
+				const input = e.currentTarget as HTMLInputElement;
+				if (input.files?.length) upload(input.files);
+				input.value = '';
+			}}
+		/>
+		<label
+			for="sl-files"
 			class="drop"
 			class:dragging
-			role="button"
-			tabindex="0"
 			ondragover={(e) => {
 				e.preventDefault();
 				dragging = true;
@@ -89,29 +96,19 @@
 				if (e.dataTransfer?.files?.length) upload(e.dataTransfer.files);
 			}}
 		>
-			{#if busy}
-				<span>Uploading…</span>
-			{:else}
-				<span>Drop images here, or</span>
-				<input
-					type="file"
-					accept="image/*"
-					multiple
-					onchange={(e) => {
-						const input = e.currentTarget as HTMLInputElement;
-						if (input.files?.length) upload(input.files);
-					}}
-				/>
-			{/if}
-		</div>
+			<span>{busy ? 'Uploading…' : 'Drop images here, or click to choose'}</span>
+		</label>
 
-		<p class="hint">Large photos are shrunk in your browser first, so this works on mobile data.</p>
-
-		{#if uploaded}
-			<div class="done">
-				{uploaded === 1 ? '1 image is' : `${uploaded} images are`} in the library. You can close this
-				tab and carry on in the chat.
-			</div>
+		{#if uploaded.length}
+			<ul class="files">
+				{#each uploaded as file}
+					<li>
+						<span class="name">{file.name}</span>
+						<span class="size">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
+					</li>
+				{/each}
+			</ul>
+			<p class="done">You can close this tab.</p>
 		{/if}
 	{:else}
 		<h1>Sign in to upload</h1>
@@ -160,11 +157,6 @@
 		color: var(--sl-muted);
 	}
 
-	.hint {
-		font-size: 12px;
-		margin: 0.75rem 0 0;
-	}
-
 	label {
 		display: block;
 		margin: 0 0 0.5rem;
@@ -191,27 +183,58 @@
 		border-color: var(--sl-muted);
 	}
 
-	input[type='file'] {
-		width: auto;
-		margin: 0;
-		border: 0;
-		background: none;
+	.picker {
+		position: absolute;
+		width: 0;
+		height: 0;
+		opacity: 0;
+		pointer-events: none;
 	}
 
 	.drop {
+		box-sizing: border-box;
 		display: flex;
-		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: 0.75rem;
-		min-height: 12rem;
+		min-height: 16rem;
+		margin: 1.25rem 0 0;
+		padding: 1.5rem;
+		text-align: center;
 		border: 1px dashed var(--sl-border);
 		border-radius: 3px;
 		color: var(--sl-muted);
+		cursor: pointer;
+		transition: border-color 0.2s ease, color 0.2s ease;
 	}
 
+	.drop:hover,
 	.drop.dragging {
-		border-color: var(--sl-muted);
+		border-color: var(--sl-text);
+		color: var(--sl-text);
+	}
+
+	.files {
+		list-style: none;
+		margin: 1.25rem 0 0;
+		padding: 0;
+	}
+
+	.files li {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0.35rem 0;
+		border-bottom: 1px solid var(--sl-border);
+	}
+
+	.name {
+		word-break: break-all;
+	}
+
+	.size {
+		color: var(--sl-muted);
+		white-space: nowrap;
 	}
 
 	button {
@@ -229,10 +252,7 @@
 	}
 
 	.done {
-		margin-top: 1.5rem;
-		padding: 0.7rem 0.75rem;
-		border: 1px solid var(--sl-border);
-		border-radius: 3px;
+		margin: 1rem 0 0;
 	}
 
 	.error {
