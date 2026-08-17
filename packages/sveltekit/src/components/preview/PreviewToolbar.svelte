@@ -48,9 +48,6 @@
 		if (params.has('delete')) {
 			panel = 'delete';
 			openedOn = path;
-		} else if (params.has('upload')) {
-			panel = 'upload';
-			openedOn = path;
 		} else if (openedOn && openedOn !== path) {
 			panel = 'none';
 			openedOn = '';
@@ -63,9 +60,8 @@
 		openedOn = '';
 		failure = '';
 		const url = new URL(page.url);
-		if (url.searchParams.has('delete') || url.searchParams.has('upload')) {
+		if (url.searchParams.has('delete')) {
 			url.searchParams.delete('delete');
-			url.searchParams.delete('upload');
 			replaceState(url, page.state);
 		}
 	}
@@ -187,12 +183,10 @@
 
 		<span class="actions">
 			{#if canPublish}
-				<button type="button" onclick={() => (panel = panel === 'upload' ? 'none' : 'upload')}>
-					Upload image
-				</button>
+				<button type="button" onclick={() => (panel = panel === 'upload' ? 'none' : 'upload')}>Upload image</button>
 			{/if}
 			{#if editUrl}
-				<a href={editUrl} rel="noreferrer">Edit</a>
+				<a href={editUrl} rel="noreferrer">Edit draft</a>
 			{/if}
 			{#if isDraft && !published && canPublish}
 				<button class="primary" type="button" onclick={publish} disabled={busy}>

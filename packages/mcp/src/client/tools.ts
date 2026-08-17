@@ -588,38 +588,6 @@ export const TOOLS: McpTool[] = [
         },
     },
     {
-        name: 'request_upload_link',
-        description:
-            'Get a link that opens the image uploader on the preview site. Use this whenever the person wants to add a picture, because images cannot be passed through this connection. They must be signed in. When they are done, call list_media to pick up the new id.',
-        scope: MCP_SCOPES.mediaWrite,
-        inputSchema: {
-            type: 'object',
-            properties: {
-                collection: collectionEnum,
-                id: { type: ['string', 'number'], description: "Open the uploader on this document's page. Defaults to the site root." },
-                locale: { type: 'string' },
-            },
-            required: ['locale'],
-            additionalProperties: false,
-        },
-        run: async (args, ctx) => {
-            let target = `${ctx.siteUrl}/${args.locale}`
-
-            if (args.id !== undefined && args.id !== null) {
-                const resolved = await previewUrlFor(resolveCollection(args.collection), args.id, args.locale, ctx)
-                if (resolved) target = resolved
-            }
-
-            return [
-                'Show this to them as a clickable markdown link, exactly as written on the next line. Do not put it in a code block or backticks.',
-                '',
-                `[Upload an image](${target}?upload=1)`,
-                '',
-                'It opens the uploader on the preview site. They need to be signed in. Once they are done, call list_media to get the new image id.',
-            ].join('\n')
-        },
-    },
-    {
         name: 'get_preview_link',
         description: 'Return the preview URL for a document so the person can read the draft before publishing.',
         scope: MCP_SCOPES.contentRead,
