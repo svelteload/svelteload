@@ -112,8 +112,7 @@ export function UploadDropzone() {
             <div className={styles.panel}>
                 <h1 className={styles.heading}>Upload images</h1>
                 <p className={styles.intro}>
-                    Drop your images below. The chat that sent you here collects them on its own, so there is
-                    nothing to send back.
+                    Anything you add here goes straight into the chat you came from.
                 </p>
 
                 <input
@@ -156,9 +155,7 @@ export function UploadDropzone() {
 
                         {!progress && (
                             <div className={styles.done}>
-                                <p className={styles.next}>
-                                    Drop more above if you have others. Otherwise you are done here.
-                                </p>
+                                <p className={styles.next}>Drop more above if you have others.</p>
                                 <button type="button" className={styles.close} onClick={closeTab}>
                                     Close this tab
                                 </button>
