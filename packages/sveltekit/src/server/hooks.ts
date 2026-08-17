@@ -36,41 +36,123 @@ function escapeHtmlAttr(value: string): string {
 
 function renderPreviewLoginHtml(adminUrl: string | undefined, deepLinkUrl: string | null, error?: string): string {
     const target = deepLinkUrl ?? adminUrl
-    const cmsLink = target ? `<a class="secondary" href="${escapeHtmlAttr(target)}">Open the CMS instead</a>` : ''
-    const gatekeeper = (projectMeta as { gatekeeper?: { bg?: string; fg?: string } }).gatekeeper ?? {}
-    const bg = gatekeeper.bg ?? '#ffffff'
-    const fg = gatekeeper.fg ?? '#000000'
+    const cmsLink = target ? `<a class="alt" href="${escapeHtmlAttr(target)}">Open the CMS instead</a>` : ''
+    const base = adminUrl ? adminUrl.replace(/\/+$/, '') : ''
+    const logo = base ? `<img class="logo" src="${escapeHtmlAttr(base)}/logo.png" alt="">` : ''
     return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>Sign in to view this draft</title>
+<title>Sign in</title>
 <style>
-  :root { color-scheme: light; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; min-height: 100vh; display: grid; place-items: center; background: ${bg}; color: ${fg}; padding: 2rem; }
-  main { max-width: 24rem; width: 100%; }
-  h1 { font-size: 1.35rem; margin: 0 0 0.5rem; }
-  p { line-height: 1.55; margin: 0 0 1.5rem; opacity: 0.75; font-size: 0.92rem; }
-  label { display: block; font-size: 0.8rem; margin: 0 0 0.35rem; opacity: 0.8; }
-  input { width: 100%; box-sizing: border-box; padding: 0.65rem 0.75rem; margin: 0 0 1rem; border-radius: 6px; border: 1px solid ${fg}33; background: transparent; color: ${fg}; font-size: 0.95rem; font-family: inherit; }
-  button { width: 100%; padding: 0.7rem; background: ${fg}; color: ${bg}; border: 0; border-radius: 6px; font-size: 0.95rem; font-weight: 600; font-family: inherit; cursor: pointer; }
-  .secondary { display: block; margin-top: 1.25rem; text-align: center; color: ${fg}; opacity: 0.6; font-size: 0.85rem; }
-  .err { border: 1px solid #b4444488; background: #b4444422; padding: 0.6rem 0.75rem; border-radius: 6px; margin: 0 0 1rem; font-size: 0.85rem; }
+  :root {
+    color-scheme: light dark;
+    --base-0: rgb(255, 255, 255);
+    --base-100: rgb(235, 235, 235);
+    --base-150: rgb(221, 221, 221);
+    --base-600: rgb(101, 101, 101);
+    --base-750: rgb(60, 60, 60);
+    --base-800: rgb(47, 47, 47);
+    --base-850: rgb(34, 34, 34);
+    --base-900: rgb(20, 20, 20);
+    --base-1000: rgb(0, 0, 0);
+
+    --bg: var(--base-0);
+    --text: var(--base-1000);
+    --muted: var(--base-600);
+    --input-bg: var(--base-0);
+    --border: var(--base-150);
+    --button-bg: var(--base-800);
+    --button-text: var(--base-0);
+    --error-bg: rgb(252, 229, 227);
+    --error-border: rgb(247, 208, 204);
+    --error-text: rgb(144, 44, 43);
+    --required: rgb(218, 75, 72);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: var(--base-900);
+      --text: var(--base-0);
+      --muted: rgb(154, 154, 154);
+      --input-bg: var(--base-850);
+      --border: var(--base-750);
+      --button-bg: var(--base-100);
+      --button-text: var(--base-900);
+      --error-bg: rgb(105, 39, 37);
+      --error-border: rgb(123, 41, 39);
+      --error-text: rgb(253, 177, 170);
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: 2.5rem 1.5rem;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  main { width: 100%; max-width: 30rem; }
+  .logo { display: block; width: 100%; max-width: 17rem; height: auto; margin: 0 0 3rem; }
+  .intro { color: var(--muted); margin: -1.75rem 0 2.25rem; }
+  label { display: block; margin: 0 0 0.5rem; }
+  .req { color: var(--required); }
+  input {
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    margin: 0 0 1.5rem;
+    background: var(--input-bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font: inherit;
+  }
+  input:focus-visible { outline: none; border-color: var(--muted); }
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--text);
+    box-shadow: 0 0 0 100px var(--input-bg) inset;
+  }
+  button {
+    width: 100%;
+    padding: 0.7rem;
+    background: var(--button-bg);
+    color: var(--button-text);
+    border: 0;
+    border-radius: 3px;
+    font: inherit;
+    cursor: pointer;
+  }
+  button:hover { opacity: 0.85; }
+  .alt { display: inline-block; margin-top: 1.5rem; color: var(--text); font-size: 12px; }
+  .err {
+    background: var(--error-bg);
+    border: 1px solid var(--error-border);
+    color: var(--error-text);
+    padding: 0.6rem 0.75rem;
+    border-radius: 3px;
+    margin: 0 0 1.5rem;
+  }
 </style>
 </head>
 <body>
 <main>
-<h1>Sign in to view this draft</h1>
-<p>This is the preview site. Sign in with your website account to read unpublished changes and publish them when they look right.</p>
+${logo}
+<p class="intro">Preview site. Sign in to read drafts and publish them.</p>
 <form method="post">
 ${error ? `<div class="err">${escapeHtmlAttr(error)}</div>` : ''}
-<label for="email">Email</label>
+<label for="email">Email <span class="req">*</span></label>
 <input id="email" name="email" type="email" autocomplete="username" required>
-<label for="password">Password</label>
+<label for="password">Password <span class="req">*</span></label>
 <input id="password" name="password" type="password" autocomplete="current-password" required>
-<button type="submit">Sign in</button>
+<button type="submit">Login</button>
 </form>
 ${cmsLink}
 </main>
