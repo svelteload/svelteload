@@ -3,17 +3,8 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { PayloadClient } from './client.js'
-import { registerGetSchema } from './tools/get-schema.js'
-import { registerFind } from './tools/find.js'
-import { registerGetById } from './tools/get-by-id.js'
-import { registerCreate } from './tools/create.js'
-import { registerUpload } from './tools/upload.js'
-import { registerUpdate } from './tools/update.js'
-import { registerGetGlobal } from './tools/get-global.js'
-import { registerUpdateGlobal } from './tools/update-global.js'
-import { registerUpdateSection } from './tools/update-section.js'
-import { registerBrowseMedia } from './tools/browse-media.js'
+import { PayloadClient, registerDevTools } from '@svelteload/mcp'
+import { payloadConfigBase } from '@payload-config/payload-base.config'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const envPath = resolve(__dirname, '..', '.env')
@@ -37,24 +28,17 @@ if (!PAYLOAD_API_KEY) {
   console.error('Warning: PAYLOAD_API_KEY not set. CRUD operations will fail (schema tool still works).')
 }
 
-const client = new PayloadClient(PAYLOAD_URL, PAYLOAD_API_KEY)
-
 const server = new McpServer({
   name: 'payload-cms',
   version: '1.0.0',
 })
 
-registerGetSchema(server)
-
-registerFind(server, client)
-registerGetById(server, client)
-registerCreate(server, client)
-registerUpload(server, client)
-registerUpdate(server, client)
-registerGetGlobal(server, client)
-registerUpdateGlobal(server, client)
-registerUpdateSection(server, client)
-registerBrowseMedia(server, PAYLOAD_URL)
+registerDevTools(
+  server,
+  new PayloadClient(PAYLOAD_URL, PAYLOAD_API_KEY),
+  PAYLOAD_URL,
+  payloadConfigBase as unknown as Record<string, unknown>,
+)
 
 const transport = new StdioServerTransport()
 await server.connect(transport)

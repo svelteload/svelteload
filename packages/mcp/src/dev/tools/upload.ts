@@ -2,8 +2,8 @@ import { readFile, stat } from 'node:fs/promises'
 import { basename, isAbsolute } from 'node:path'
 import { z } from 'zod'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { PayloadClient } from '../client.js'
-import { mimeTypeForFilename } from '../mimeTypes.js'
+import { PayloadClient } from '../client'
+import { mimeTypeForFilename } from '../mimeTypes'
 
 const fileSchema = z.object({
   filePath: z.string().describe('Absolute path to the file on disk'),

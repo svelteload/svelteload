@@ -1,13 +1,13 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { getSchema } from '../schema.js'
+import { getSchema } from '../schema'
 
-export function registerGetSchema(server: McpServer) {
+export function registerGetSchema(server: McpServer, projectConfig: Parameters<typeof getSchema>[0]) {
   server.tool(
     'get_schema',
     'Returns the full Payload CMS data model: all collections, globals, blocks, and fields with their types, localization flags, and relationships. Use this to understand the content structure before making queries or updates.',
     {},
     async () => ({
-      content: [{ type: 'text', text: getSchema() }],
+      content: [{ type: 'text', text: getSchema(projectConfig) }],
     }),
   )
 }

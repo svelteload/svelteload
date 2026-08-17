@@ -1,6 +1,5 @@
-import { getPayload } from 'payload'
-import config from '@payload-config'
-import { MCP_SCOPES, type McpScope } from '@svelteload/payload/utils/mcpScopes'
+import { MCP_SCOPES } from '@svelteload/payload/utils/mcpScopes'
+import type { McpTool, ToolContext } from '../types'
 import { ACTION_TOKEN_TTL_SECONDS, signActionToken } from '@svelteload/payload/utils/actionTokens'
 import {
     lexicalContainsUneditableNodes,
@@ -29,20 +28,6 @@ const COLLECTION_SHAPES: Record<string, CollectionShape> = {
     blog: { titleField: 'title', dateField: 'publicationDate', requiresMeta: false, bodyField: 'content', urlField: 'slug' },
 }
 
-export type ToolContext = {
-    user: Record<string, unknown>
-    scopes: string[]
-    siteUrl: string
-}
-
-export type McpTool = {
-    name: string
-    description: string
-    scope: McpScope
-    inputSchema: Record<string, unknown>
-    run: (args: Record<string, any>, ctx: ToolContext) => Promise<string>
-}
-
 const EDITABLE_COLLECTIONS = ['pages', 'blog', 'projects', 'tools'] as const
 
 const collectionEnum = {
@@ -62,8 +47,6 @@ const resolveCollection = (value: unknown): string => {
     }
     return slug
 }
-
-const payloadFor = async () => getPayload({ config })
 
 const callArgs = (ctx: ToolContext) => ({
     user: ctx.user as never,
@@ -100,7 +83,7 @@ const describeSection = (section: Record<string, unknown>, index: number): strin
 }
 
 const loadDoc = async (collection: string, id: unknown, locale: string | undefined, ctx: ToolContext) => {
-    const payload = await payloadFor()
+    const payload = ctx.payload
     return payload.findByID({
         collection: collection as never,
         id: id as string | number,
@@ -131,7 +114,7 @@ export const TOOLS: McpTool[] = [
         },
         run: async (args, ctx) => {
             const collection = resolveCollection(args.collection)
-            const payload = await payloadFor()
+            const payload = ctx.payload
             const result = await payload.find({
                 collection: collection as never,
                 limit: Math.min(Number(args.limit) || 100, 200),
@@ -262,7 +245,7 @@ export const TOOLS: McpTool[] = [
                 data.slug = slug
             }
 
-            const payload = await payloadFor()
+            const payload = ctx.payload
             const created: any = await payload.create({
                 collection: collection as never,
                 locale: args.locale,
@@ -306,7 +289,7 @@ export const TOOLS: McpTool[] = [
         },
         run: async (args, ctx) => {
             const collection = resolveCollection(args.collection)
-            const payload = await payloadFor()
+            const payload = ctx.payload
             const doc = await loadDoc(collection, args.id, args.locale, ctx)
 
             const sections = Array.isArray(doc.sections) ? doc.sections : []
@@ -361,7 +344,7 @@ export const TOOLS: McpTool[] = [
                 return `metaDescription is capped at ${MAX_META_DESCRIPTION} characters by the schema. It is currently ${String(args.value).length}. Shorten it and try again.`
             }
 
-            const payload = await payloadFor()
+            const payload = ctx.payload
             const doc = await loadDoc(collection, args.id, args.locale, ctx)
 
             await payload.update({
@@ -408,7 +391,7 @@ export const TOOLS: McpTool[] = [
                 }
             }
 
-            const payload = await payloadFor()
+            const payload = ctx.payload
             const doc = await loadDoc(collection, args.id, args.locale, ctx)
             const previous = doc[field]
 
@@ -458,7 +441,7 @@ export const TOOLS: McpTool[] = [
         run: async (args, ctx) => {
             const collection = resolveCollection(args.collection)
             const field = typeof args.field === 'string' && args.field ? args.field : 'content'
-            const payload = await payloadFor()
+            const payload = ctx.payload
             const doc = await loadDoc(collection, args.id, args.locale, ctx)
 
             const existing = doc[field]
@@ -501,7 +484,7 @@ export const TOOLS: McpTool[] = [
         },
         run: async (args, ctx) => {
             const collection = resolveCollection(args.collection)
-            const payload = await payloadFor()
+            const payload = ctx.payload
             const doc = await loadDoc(collection, args.id, args.locale, ctx)
 
             const sections = Array.isArray(doc.sections) ? doc.sections : []
@@ -540,7 +523,7 @@ export const TOOLS: McpTool[] = [
         },
         run: async (args, ctx) => {
             const collection = resolveCollection(args.collection)
-            const payload = await payloadFor()
+            const payload = ctx.payload
             const doc = await loadDoc(collection, args.id, undefined, ctx)
 
             const data: Record<string, unknown> = { ...identifyingFields(doc), _status: 'draft' }
@@ -579,7 +562,7 @@ export const TOOLS: McpTool[] = [
             additionalProperties: false,
         },
         run: async (args, ctx) => {
-            const payload = await payloadFor()
+            const payload = ctx.payload
             const result = await payload.find({
                 collection: 'media' as never,
                 limit: Math.min(Number(args.limit) || 40, 100),

@@ -1,4 +1,5 @@
-import { payloadConfigBase } from '@payload-config/payload-base.config'
+type ProjectConfig = { collections?: unknown; globals?: unknown } & Record<string, unknown>
+
 
 interface FieldInfo {
   name: string
@@ -136,7 +137,7 @@ function formatField(field: FieldInfo, indent: number): string {
   return lines.join('\n')
 }
 
-export function getSchema(): string {
+export function getSchema(payloadConfigBase: ProjectConfig): string {
   const config = payloadConfigBase
 
   const collections: CollectionInfo[] = (config.collections as Record<string, unknown>[]).map(col => ({

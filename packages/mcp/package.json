@@ -1,0 +1,31 @@
+{
+  "name": "@svelteload/mcp",
+  "version": "0.0.1",
+  "private": true,
+  "description": "All MCP logic for svelteload. The stdio dev server and the remote connector both consume this; the apps are thin transports.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@svelteload/payload": "workspace:*",
+    "qs": "^6.15.1",
+    "zod": "^4.3.6"
+  },
+  "peerDependencies": {
+    "payload": "^3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/qs": "^6.15.0",
+    "payload": "3.83.0",
+    "typescript": "^6.0.3"
+  }
+}

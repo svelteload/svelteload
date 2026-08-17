@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { PayloadClient } from '../client.js'
+import { PayloadClient } from '../client'
 
 export function registerUpdateSection(server: McpServer, client: PayloadClient) {
   server.tool(
