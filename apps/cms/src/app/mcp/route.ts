@@ -14,9 +14,11 @@ const SERVER_INSTRUCTIONS = `This server edits one website's content.
 
 How to work:
 - Start with list_content to find a document id, then get_document to see its fields, its sections and their sectionIds.
+- create_document makes a new page, post, project or tool as a draft. You do not need the CMS admin for this.
 - edit_text changes one field inside one section. edit_field changes a plain top-level field such as title or metaDescription. edit_rich_text replaces a body, so read the current one first because it overwrites the whole field.
 - rename_url changes an address. Never try to set slug or path through edit_field.
-- Images cannot be sent through this connection. Call request_upload_link, give the person the link, then list_media to pick up the new id.
+- Images cannot be sent through this connection, so pasting one into the chat does not reach the site. Call request_upload_link, give the person the link, then list_media to pick up the new id. Place it with set_section_image for a page section, or set_image for a blog post's main or social image.
+- When a tool hands you a link, relay it as a clickable markdown link in your reply. Never wrap a link in backticks or a code block; it stops being clickable.
 
 Rules that matter:
 - Every change saves as a draft. You cannot publish and you cannot delete. When you are done, give the person a preview link from get_preview_link and tell them to read it and publish from that page.

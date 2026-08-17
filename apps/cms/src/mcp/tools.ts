@@ -7,6 +7,27 @@ import {
     lexicalToMarkdown,
     markdownToLexical,
 } from '@svelteload/payload/utils/lexicalText'
+import { generateSlugFromName } from '@svelteload/payload/utils/generateSlugFromName'
+
+type CollectionShape = {
+    /** Field that carries the human-readable name. */
+    titleField: 'name' | 'title'
+    /** Required publish date field, if the collection has one. */
+    dateField?: string
+    /** Collections built from `metadataFields` require metaTitle and metaDescription. */
+    requiresMeta: boolean
+    /** Lexical body field that is required at creation. */
+    bodyField?: string
+    /** Collections whose path comes from a landing page need a slug; Pages carry a full path. */
+    urlField: 'path' | 'slug'
+}
+
+const COLLECTION_SHAPES: Record<string, CollectionShape> = {
+    pages: { titleField: 'name', requiresMeta: true, urlField: 'path' },
+    projects: { titleField: 'name', dateField: 'publishDate', requiresMeta: true, urlField: 'slug' },
+    tools: { titleField: 'name', dateField: 'publishDate', requiresMeta: true, urlField: 'slug' },
+    blog: { titleField: 'title', dateField: 'publicationDate', requiresMeta: false, bodyField: 'content', urlField: 'slug' },
+}
 
 export type ToolContext = {
     user: Record<string, unknown>
@@ -176,6 +197,93 @@ export const TOOLS: McpTool[] = [
             }
 
             return lines.join('\n')
+        },
+    },
+    {
+        name: 'create_document',
+        description:
+            'Create a new page, blog post, project or tool as a draft. Give the title and, for a blog post, the body. Everything else is derived. The result is never published, so hand back a preview link afterwards.',
+        scope: MCP_SCOPES.contentWrite,
+        inputSchema: {
+            type: 'object',
+            properties: {
+                collection: collectionEnum,
+                locale: { type: 'string' },
+                title: { type: 'string', description: 'The human-readable name or title' },
+                body: { type: 'string', description: 'Blog post body, as prose. Same formatting as edit_rich_text.' },
+                metaDescription: { type: 'string', description: `One-sentence summary for search results, max ${MAX_META_DESCRIPTION} characters` },
+                metaTitle: { type: 'string', description: 'Defaults to the title. Never append the site name.' },
+                path: { type: 'string', description: 'Pages only. Full path starting with /. Derived from the title when omitted.' },
+                slug: { type: 'string', description: 'Non-page collections. Derived from the title when omitted.' },
+                date: { type: 'string', description: 'ISO date for the publish date. Defaults to now.' },
+                metaImageId: { type: ['string', 'number'], description: 'Media id for the social preview image' },
+            },
+            required: ['title', 'locale'],
+            additionalProperties: false,
+        },
+        run: async (args, ctx) => {
+            const collection = resolveCollection(args.collection)
+            const shape = COLLECTION_SHAPES[collection]
+            const title = String(args.title ?? '').trim()
+
+            if (!title) return 'Give a title for the new document.'
+
+            const metaDescription = String(args.metaDescription ?? '').trim()
+            if (metaDescription.length > MAX_META_DESCRIPTION) {
+                return `metaDescription is capped at ${MAX_META_DESCRIPTION} characters. It is currently ${metaDescription.length}.`
+            }
+            if (shape.requiresMeta && !metaDescription) {
+                return `A ${collection} document needs a metaDescription. Write a one-sentence summary of the page, up to ${MAX_META_DESCRIPTION} characters.`
+            }
+            if (shape.bodyField && !String(args.body ?? '').trim()) {
+                return `A ${collection} document needs a body. Pass it as "body", written as prose.`
+            }
+
+            const data: Record<string, unknown> = { _status: 'draft', [shape.titleField]: title }
+
+            if (shape.requiresMeta) {
+                data.metaTitle = String(args.metaTitle ?? '').trim() || title
+                data.metaDescription = metaDescription
+            } else if (metaDescription) {
+                data.metaDescription = metaDescription
+            }
+
+            if (shape.bodyField) data[shape.bodyField] = markdownToLexical(String(args.body))
+            if (shape.dateField) data[shape.dateField] = String(args.date ?? '').trim() || new Date().toISOString()
+            if (args.metaImageId) data.metaImage = args.metaImageId
+
+            if (shape.urlField === 'path') {
+                const path = String(args.path ?? '').trim()
+                if (path && !path.startsWith('/')) return 'A page path has to start with /.'
+                if (path) data.path = path
+            } else {
+                const slug = String(args.slug ?? '').trim() || generateSlugFromName(title)
+                if (slug.includes('/')) return 'Give just the slug, without slashes.'
+                data.slug = slug
+            }
+
+            const payload = await payloadFor()
+            const created: any = await payload.create({
+                collection: collection as never,
+                locale: args.locale,
+                draft: true,
+                data: data as never,
+                ...callArgs(ctx),
+            })
+
+            const paths = Object.entries(created.localizedPaths ?? {})
+                .map(([locale, path]) => `  ${locale}: ${path}`)
+                .join('\n')
+
+            return [
+                `Created ${collection} ${created.id} as a draft in ${args.locale}.`,
+                '',
+                paths ? `Addresses:\n${paths}` : '',
+                '',
+                `Only the ${args.locale} locale has content. Offer to write the other locale before they publish, because publishing ships every locale at once.`,
+            ]
+                .filter(Boolean)
+                .join('\n')
         },
     },
     {
@@ -415,6 +523,53 @@ export const TOOLS: McpTool[] = [
         },
     },
     {
+        name: 'set_image',
+        description:
+            'Attach an existing media item to a document outside of its sections. Slot "main" sets a blog post\'s own image, the one shown on the post and in listings. Slot "meta" sets the social preview image. For an image inside a page section use set_section_image instead.',
+        scope: MCP_SCOPES.contentWrite,
+        inputSchema: {
+            type: 'object',
+            properties: {
+                collection: collectionEnum,
+                id: { type: ['string', 'number'] },
+                mediaId: { type: ['string', 'number'] },
+                slot: { type: 'string', enum: ['main', 'meta'] },
+            },
+            required: ['id', 'mediaId', 'slot'],
+            additionalProperties: false,
+        },
+        run: async (args, ctx) => {
+            const collection = resolveCollection(args.collection)
+            const payload = await payloadFor()
+            const doc = await loadDoc(collection, args.id, undefined, ctx)
+
+            const data: Record<string, unknown> = { ...identifyingFields(doc), _status: 'draft' }
+
+            if (args.slot === 'meta') {
+                data.metaImage = args.mediaId
+            } else {
+                if (collection !== 'blog') {
+                    return `Only blog posts have a main image. For ${collection} use set_section_image to place an image inside a section.`
+                }
+                const images = Array.isArray(doc.images) ? [...doc.images] : []
+                if (images.length) images[0] = { ...images[0], image: args.mediaId }
+                else images.push({ image: args.mediaId })
+                data.images = images
+            }
+
+            await payload.update({
+                collection: collection as never,
+                id: args.id,
+                draft: true,
+                data: data as never,
+                ...callArgs(ctx),
+            })
+
+            const slotLabel = args.slot === 'meta' ? 'social preview image' : 'main image'
+            return `Saved as a draft. The ${slotLabel} on ${collection} ${args.id} is now media ${args.mediaId}.`
+        },
+    },
+    {
         name: 'list_media',
         description: 'List images already in the media library, newest first. Use an id with set_section_image.',
         scope: MCP_SCOPES.contentRead,
@@ -446,7 +601,14 @@ export const TOOLS: McpTool[] = [
         inputSchema: { type: 'object', properties: {}, additionalProperties: false },
         run: async (_args, ctx) => {
             const token = signActionToken({ act: 'upload', sub: String(ctx.user.id) }, ACTION_TOKEN_TTL_SECONDS)
-            return `Send them this link. It works for 30 minutes:\n${ctx.siteUrl}/preview-upload/${token}\n\nAfter they upload, call list_media to get the new image id.`
+            const url = `${ctx.siteUrl}/preview-upload/${token}`
+            return [
+                'Upload link ready. Show it to them as a clickable markdown link, exactly as written on the next line. Do not put it in a code block or backticks, and do not shorten it.',
+                '',
+                `[Upload an image](${url})`,
+                '',
+                'It works for 30 minutes. Once they say they are done, call list_media to get the new image id.',
+            ].join('\n')
         },
     },
     {
@@ -468,7 +630,17 @@ export const TOOLS: McpTool[] = [
             const doc = await loadDoc(collection, args.id, undefined, ctx)
             const path = (doc.localizedPaths ?? {})[args.locale]
             if (!path) return `${collection} ${args.id} has no path for locale ${args.locale}.`
-            return `${ctx.siteUrl}/${args.locale}${path === '/' ? '' : path}`
+
+            const url = `${ctx.siteUrl}/${args.locale}${path === '/' ? '' : path}`
+            const label = doc.name ?? doc.title ?? 'the draft'
+
+            return [
+                'Show this to them as a clickable markdown link, exactly as written on the next line. Do not put it in a code block or backticks.',
+                '',
+                `[${typeof label === 'string' ? label : 'View the draft'}](${url})`,
+                '',
+                'They need to be signed in on the preview site to see it. A Publish button appears at the top of the page once they are.',
+            ].join('\n')
         },
     },
     {
@@ -495,7 +667,15 @@ export const TOOLS: McpTool[] = [
                 ACTION_TOKEN_TTL_SECONDS,
             )
 
-            return `Send them this link to confirm deleting ${JSON.stringify(label)}. It works for 30 minutes and they must be signed in:\n${ctx.siteUrl}/preview-delete/${token}\n\nThe page will ask where the old address should redirect to, so nothing that is already indexed starts returning 404.`
+            const url = `${ctx.siteUrl}/preview-delete/${token}`
+
+            return [
+                `Confirmation link for deleting ${JSON.stringify(label)}. Show it as a clickable markdown link, exactly as written on the next line. Do not put it in a code block or backticks.`,
+                '',
+                `[Confirm deleting ${typeof label === 'string' ? label : 'this document'}](${url})`,
+                '',
+                'It works for 30 minutes and they must be signed in. The page asks where the old address should redirect to, so nothing already indexed starts returning 404, and it makes them type the name to confirm.',
+            ].join('\n')
         },
     },
 ]
