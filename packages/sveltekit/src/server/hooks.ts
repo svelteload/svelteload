@@ -60,8 +60,8 @@ ${PREVIEW_THEME_CSS}
     color: var(--sl-text);
   }
   main { width: 100%; max-width: 30rem; }
-  .logo { display: block; width: 100%; max-width: 17rem; height: auto; margin: 0 0 3rem; }
-  .intro { color: var(--sl-muted); margin: -1.75rem 0 2.25rem; }
+  .logo { display: block; width: 100%; max-width: 20rem; height: auto; margin: 0 auto 2.5rem; }
+  .intro { color: var(--sl-muted); text-align: center; margin: 0 0 2.5rem; }
   label { display: block; margin: 0 0 0.5rem; }
   .req { color: var(--sl-required); }
   input {
@@ -92,7 +92,7 @@ ${PREVIEW_THEME_CSS}
     cursor: pointer;
   }
   button:hover { opacity: 0.85; }
-  .alt { display: inline-block; margin-top: 1.5rem; color: var(--sl-text); font-size: 12px; }
+  .alt { display: block; text-align: center; margin-top: 1.5rem; color: var(--sl-text); font-size: 12px; }
   .err {
     background: var(--sl-error-bg);
     border: 1px solid var(--sl-error-border);
