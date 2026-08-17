@@ -629,6 +629,7 @@ export const TOOLS: McpTool[] = [
                 '',
                 `Now call collect_new_images with since="${since}". It waits for the files to arrive and hands you the ids, so do not ask them to confirm, to describe the picture, or to send anything back. They drop the file and that is the whole of their part.`,
                 'They need to be signed in, and the page sends them to the sign-in screen and back if they are not.',
+                'The page takes several files at once, lists each one as it lands and tells them when they are finished, so keep your own message down to the link and what the image is for.',
             ].join('\n')
         },
     },

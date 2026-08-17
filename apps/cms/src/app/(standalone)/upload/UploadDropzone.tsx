@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, type ChangeEvent, type DragEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { MAX_UPLOAD_DIMENSION } from '@svelteload/payload/imageSizes'
 import styles from './upload.module.css'
 
 const REENCODABLE = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
-type Uploaded = { name: string; size: number }
+type Uploaded = { name: string; size: number; preview: string }
+type Progress = { done: number; total: number }
 
 async function shrink(file: File): Promise<Blob> {
     if (!REENCODABLE.has(file.type)) return file
@@ -26,17 +27,23 @@ async function shrink(file: File): Promise<Blob> {
 }
 
 export function UploadDropzone() {
-    const [busy, setBusy] = useState(false)
+    const [progress, setProgress] = useState<Progress | null>(null)
     const [failure, setFailure] = useState('')
     const [uploaded, setUploaded] = useState<Uploaded[]>([])
     const [dragging, setDragging] = useState(false)
+    const [closeBlocked, setCloseBlocked] = useState(false)
+    const previews = useRef<string[]>([])
+
+    useEffect(() => () => previews.current.forEach((url) => URL.revokeObjectURL(url)), [])
 
     async function upload(files: FileList | File[]) {
-        if (busy) return
-        setBusy(true)
+        if (progress) return
+        const queue = Array.from(files)
+        setProgress({ done: 0, total: queue.length })
         setFailure('')
+        setCloseBlocked(false)
         try {
-            for (const file of Array.from(files)) {
+            for (const file of queue) {
                 const shrunk = await shrink(file)
                 const name = shrunk === file ? file.name : file.name.replace(/\.[^.]+$/, '') + '.webp'
 
@@ -58,12 +65,16 @@ export function UploadDropzone() {
                     )
                     return
                 }
-                setUploaded((current) => [...current, { name, size: shrunk.size }])
+
+                const preview = URL.createObjectURL(shrunk)
+                previews.current.push(preview)
+                setUploaded((current) => [...current, { name, size: shrunk.size, preview }])
+                setProgress((current) => (current ? { ...current, done: current.done + 1 } : current))
             }
         } catch (err) {
             setFailure(err instanceof Error ? err.message : String(err))
         } finally {
-            setBusy(false)
+            setProgress(null)
         }
     }
 
@@ -79,10 +90,31 @@ export function UploadDropzone() {
         if (event.dataTransfer?.files?.length) void upload(event.dataTransfer.files)
     }
 
+    function closeTab() {
+        window.close()
+        window.setTimeout(() => setCloseBlocked(true), 400)
+    }
+
+    const dropLabel = progress
+        ? progress.total > 1
+            ? `Uploading ${Math.min(progress.done + 1, progress.total)} of ${progress.total}…`
+            : 'Uploading…'
+        : uploaded.length
+          ? 'Drop more images here, or click to choose'
+          : 'Drop images here, or click to choose'
+
+    const dropClasses = [styles.drop, dragging ? styles.dragging : '', progress ? styles.busy : '']
+        .filter(Boolean)
+        .join(' ')
+
     return (
         <main className={styles.page}>
             <div className={styles.panel}>
                 <h1 className={styles.heading}>Upload images</h1>
+                <p className={styles.intro}>
+                    Drop your images below. The chat that sent you here collects them on its own, so there is
+                    nothing to send back.
+                </p>
 
                 <input
                     id="sl-files"
@@ -94,7 +126,7 @@ export function UploadDropzone() {
                 />
                 <label
                     htmlFor="sl-files"
-                    className={dragging ? `${styles.drop} ${styles.dragging}` : styles.drop}
+                    className={dropClasses}
                     onDragOver={(event) => {
                         event.preventDefault()
                         setDragging(true)
@@ -102,24 +134,44 @@ export function UploadDropzone() {
                     onDragLeave={() => setDragging(false)}
                     onDrop={onDrop}
                 >
-                    <span>{busy ? 'Uploading…' : 'Drop images here, or click to choose'}</span>
+                    <span>{dropLabel}</span>
                 </label>
+
+                {failure && <div className={styles.error}>{failure}</div>}
 
                 {uploaded.length > 0 && (
                     <>
+                        <p className={styles.status}>
+                            {uploaded.length} {uploaded.length === 1 ? 'image' : 'images'} added.
+                        </p>
                         <ul className={styles.files}>
-                            {uploaded.map((file) => (
-                                <li key={file.name}>
+                            {uploaded.map((file, index) => (
+                                <li key={`${file.name}-${index}`}>
+                                    <img className={styles.thumb} src={file.preview} alt="" />
                                     <span className={styles.name}>{file.name}</span>
                                     <span className={styles.size}>{(file.size / 1024 / 1024).toFixed(1)} MB</span>
                                 </li>
                             ))}
                         </ul>
-                        <p className={styles.done}>You can close this tab.</p>
+
+                        {!progress && (
+                            <div className={styles.done}>
+                                <p className={styles.next}>
+                                    Drop more above if you have others. Otherwise you are done here.
+                                </p>
+                                <button type="button" className={styles.close} onClick={closeTab}>
+                                    Close this tab
+                                </button>
+                                {closeBlocked && (
+                                    <p className={styles.hint}>
+                                        Your browser will not let the page close itself. Close the tab the usual
+                                        way and go back to the chat.
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </>
                 )}
-
-                {failure && <div className={styles.error}>{failure}</div>}
             </div>
         </main>
     )
