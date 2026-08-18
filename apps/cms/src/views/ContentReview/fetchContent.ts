@@ -71,6 +71,8 @@ const SYSTEM_SLUGS = new Set([
   'messages',
   'preview-keys',
   'access-logs',
+  'oauth-clients',
+  'oauth-grants',
 ])
 
 const EQUAL_CONTENT_OK = new Set([
