@@ -1,10 +1,9 @@
-import { headers as nextHeaders } from 'next/headers'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { getUserRole } from '@cms/access/roles'
 import { hashSecret, randomSecret, consentSignature } from '@svelteload/payload/utils/oauthTokens'
 import { narrowToGrantable, parseScopeString } from '@svelteload/payload/utils/mcpScopes'
-import { AUTH_CODE_TTL_SECONDS } from '@cms/oauth/config'
+import { AUTH_CODE_TTL_SECONDS, baseUrlFrom } from '@cms/oauth/config'
 
 export const dynamic = 'force-dynamic'
 
@@ -130,16 +129,16 @@ const validate = async (params: AuthorizeParams) => {
     return { client }
 }
 
-const currentUser = async () => {
+const currentUser = async (request: Request) => {
     const payload = await getPayload({ config })
-    const { user } = await payload.auth({ headers: await nextHeaders() })
+    const { user } = await payload.auth({ headers: request.headers })
     if (!user) return null
     return user as unknown as Record<string, unknown>
 }
 
-const signIn = (params: AuthorizeParams): Response =>
+const signIn = (request: Request, params: AuthorizeParams): Response =>
     Response.redirect(
-        new URL(`/admin/login?redirect=${encodeURIComponent(authorizeUrlFrom(params))}`, process.env.PUBLIC_PAYLOAD_ADMIN_URL || 'http://localhost:3000').toString(),
+        `${baseUrlFrom(request)}/admin/login?redirect=${encodeURIComponent(authorizeUrlFrom(params))}`,
         302,
     )
 
@@ -148,8 +147,8 @@ export async function GET(request: Request): Promise<Response> {
     const outcome = await validate(params)
     if (outcome.error) return outcome.error
 
-    const user = await currentUser()
-    if (!user) return signIn(params)
+    const user = await currentUser(request)
+    if (!user) return signIn(request, params)
 
     const clientName = (outcome.client!.clientName as string) || 'this app'
     const label = String(user.email ?? user.id ?? 'this account')
@@ -163,8 +162,8 @@ export async function POST(request: Request): Promise<Response> {
     const outcome = await validate(params)
     if (outcome.error) return outcome.error
 
-    const user = await currentUser()
-    if (!user) return signIn(params)
+    const user = await currentUser(request)
+    if (!user) return signIn(request, params)
 
     const expected = consentSignature(request, user.id, params.clientId, params.redirectUri, params.codeChallenge)
     if (String(form.get('consent') ?? '') !== expected) {
