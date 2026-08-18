@@ -44,6 +44,7 @@ const SKIP_FIELDS = new Set([
   'populatedAuthors',
   'hash',
   'salt',
+  'blockType',
 ])
 
 function isLexical(val: unknown): val is { root: unknown } {
@@ -97,6 +98,7 @@ function getItemLabel(item: Record<string, unknown>, localeCodes: string[]): str
     resolveString(item.name, localeCodes) ||
     resolveString(item.text, localeCodes) ||
     resolveString(item.title, localeCodes) ||
+    resolveString(item.key, localeCodes) ||
     String(item.blockType ?? 'Item')
   )
 }
@@ -163,13 +165,13 @@ function compareIdArrays(
 
   for (const [id, item] of pubById) {
     if (!draftById.has(id)) {
-      diffs.push({ status: 'removed', itemId: id, arrayKey, label: getItemLabel(item, localeCodes), blockType: item.blockType as string | undefined, fieldDiffs: [] })
+      diffs.push({ status: 'removed', itemId: id, arrayKey, label: getItemLabel(item, localeCodes), blockType: item.blockType as string | undefined, fieldDiffs: compareScalarFields(item, {}, '') })
     }
   }
   for (const [id, draftItem] of draftById) {
     const pubItem = pubById.get(id)
     if (!pubItem) {
-      diffs.push({ status: 'added', itemId: id, arrayKey, label: getItemLabel(draftItem, localeCodes), blockType: draftItem.blockType as string | undefined, fieldDiffs: [] })
+      diffs.push({ status: 'added', itemId: id, arrayKey, label: getItemLabel(draftItem, localeCodes), blockType: draftItem.blockType as string | undefined, fieldDiffs: compareScalarFields({}, draftItem, '') })
     } else {
       const fieldDiffs = compareScalarFields(pubItem, draftItem, '')
       if (fieldDiffs.length > 0) {
@@ -228,31 +230,42 @@ function computeLocaleDiff(
   return { fieldDiffs, itemDiffs }
 }
 
+function mergeFieldDiffsByLocale(
+  perLocale: Array<{ code: string; fieldDiffs: FieldDiff[] }>,
+  totalLocales: number,
+): FieldDiff[] {
+  const merged: FieldDiff[] = []
+  const allPaths = new Set(perLocale.flatMap(({ fieldDiffs }) => fieldDiffs.map((d) => d.path)))
+
+  for (const path of allPaths) {
+    const entries = perLocale
+      .map(({ code, fieldDiffs }) => ({ code, field: fieldDiffs.find((d) => d.path === path) }))
+      .filter((e): e is { code: string; field: FieldDiff } => e.field !== undefined)
+
+    const inEveryLocale = entries.length === totalLocales
+    const allSame = entries.every(
+      ({ field }) => field.old === entries[0].field.old && field.new === entries[0].field.new,
+    )
+
+    if (inEveryLocale && allSame) {
+      merged.push(entries[0].field)
+    } else {
+      for (const { code, field } of entries) {
+        merged.push({ ...field, locale: code.toUpperCase() })
+      }
+    }
+  }
+
+  return merged
+}
+
 function mergeAllLocaleDiffs(
   localeDiffs: Array<{ code: string; fieldDiffs: FieldDiff[]; itemDiffs: ItemDiff[] }>,
 ): { fieldDiffs: FieldDiff[]; itemDiffs: ItemDiff[] } {
   if (localeDiffs.length === 0) return { fieldDiffs: [], itemDiffs: [] }
 
-  const fieldDiffs: FieldDiff[] = []
-  const allFieldPaths = new Set(localeDiffs.flatMap(({ fieldDiffs }) => fieldDiffs.map((d) => d.path)))
-
-  for (const path of allFieldPaths) {
-    const perLocale = localeDiffs
-      .map(({ code, fieldDiffs }) => ({ code, field: fieldDiffs.find((d) => d.path === path) }))
-      .filter(({ field }) => field !== undefined) as Array<{ code: string; field: FieldDiff }>
-
-    const allSame = perLocale.every(
-      ({ field }) => field.old === perLocale[0].field.old && field.new === perLocale[0].field.new,
-    )
-
-    if (allSame) {
-      fieldDiffs.push(perLocale[0].field)
-    } else {
-      for (const { code, field } of perLocale) {
-        fieldDiffs.push({ ...field, locale: code.toUpperCase() })
-      }
-    }
-  }
+  const total = localeDiffs.length
+  const fieldDiffs = mergeFieldDiffsByLocale(localeDiffs, total)
 
   const itemDiffs: ItemDiff[] = []
   const allItemIds = new Set(localeDiffs.flatMap(({ itemDiffs }) => itemDiffs.map((d) => d.itemId)))
@@ -260,40 +273,24 @@ function mergeAllLocaleDiffs(
   for (const id of allItemIds) {
     const perLocale = localeDiffs
       .map(({ code, itemDiffs }) => ({ code, item: itemDiffs.find((d) => d.itemId === id) }))
-      .filter(({ item }) => item !== undefined) as Array<{ code: string; item: ItemDiff }>
+      .filter((e): e is { code: string; item: ItemDiff } => e.item !== undefined)
 
     if (perLocale.length === 0) continue
+
+    const mergedFieldDiffs = mergeFieldDiffsByLocale(
+      perLocale.map(({ code, item }) => ({ code, fieldDiffs: item.fieldDiffs })),
+      total,
+    )
 
     const hasStructural = perLocale.some(({ item }) => item.status !== 'changed')
     if (hasStructural) {
       const allAgree = perLocale.every(({ item }) => item.status === perLocale[0].item.status)
       if (allAgree) {
-        itemDiffs.push(perLocale[0].item)
+        itemDiffs.push({ ...perLocale[0].item, fieldDiffs: mergedFieldDiffs })
       } else {
         for (const { item } of perLocale) itemDiffs.push(item)
       }
       continue
-    }
-
-    const allFieldPathsInItem = new Set(perLocale.flatMap(({ item }) => item.fieldDiffs.map((d) => d.path)))
-    const mergedFieldDiffs: FieldDiff[] = []
-
-    for (const path of allFieldPathsInItem) {
-      const perLocaleFields = perLocale
-        .map(({ code, item }) => ({ code, field: item.fieldDiffs.find((d) => d.path === path) }))
-        .filter(({ field }) => field !== undefined) as Array<{ code: string; field: FieldDiff }>
-
-      const allSame = perLocaleFields.every(
-        ({ field }) => field.old === perLocaleFields[0].field.old && field.new === perLocaleFields[0].field.new,
-      )
-
-      if (allSame) {
-        mergedFieldDiffs.push(perLocaleFields[0].field)
-      } else {
-        for (const { code, field } of perLocaleFields) {
-          mergedFieldDiffs.push({ ...field, locale: code.toUpperCase() })
-        }
-      }
     }
 
     if (mergedFieldDiffs.length > 0) {
