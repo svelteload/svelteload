@@ -6,6 +6,20 @@ import {
     markdownToLexical,
 } from '@svelteload/payload/utils/lexicalText'
 import { generateSlugFromName } from '@svelteload/payload/utils/generateSlugFromName'
+import {
+    collectSlots,
+    documentFields,
+    findBlockFields,
+    mediaIdOf,
+    setAtPath,
+    slotLens,
+    topLevelField,
+    topLevelFieldsOfType,
+    valueAtPath,
+    type Slot,
+    type SlotKind,
+    type SlotLens,
+} from './fields'
 
 type CollectionShape = {
     /** Field that carries the human-readable name. */
@@ -35,8 +49,6 @@ const collectionEnum = {
     description: 'Which kind of document. Defaults to "pages".',
 }
 
-const PLAIN_TEXT_FIELDS = new Set(['name', 'title', 'metaTitle', 'metaDescription', 'excerpt', 'subtitle', 'summary'])
-
 const MAX_META_DESCRIPTION = 200
 
 const resolveCollection = (value: unknown): string => {
@@ -53,33 +65,132 @@ const callArgs = (ctx: ToolContext) => ({
     context: { mcpScopes: ctx.scopes },
 })
 
-const TEXTUAL_KEYS = new Set([
-    'heading', 'title', 'name', 'description', 'text', 'label', 'subheading', 'quote', 'caption', 'buttonText', 'eyebrow',
-])
-
 const isLexical = (value: unknown): boolean =>
     Boolean(value && typeof value === 'object' && 'root' in (value as Record<string, unknown>))
 
-const summarise = (value: unknown): string | null => {
-    if (typeof value === 'string') return value.length > 300 ? `${value.slice(0, 300)}…` : value
-    if (isLexical(value)) {
-        const markdown = lexicalToMarkdown(value)
-        return markdown ? `[rich text, use edit_rich_text]\n${markdown.replace(/^/gm, '        ')}` : '[empty rich text]'
-    }
-    return null
+const KIND_LABEL: Record<SlotKind, string> = {
+    text: 'text',
+    richText: 'rich text',
+    image: 'image',
+    fixed: 'fixed',
 }
 
-const describeSection = (section: Record<string, unknown>, index: number): string => {
-    const lines = [`  [${index}] blockType: ${section.blockType} · sectionId: ${section.id}`]
-    for (const [key, value] of Object.entries(section)) {
-        if (key === 'id' || key === 'blockType') continue
-        const rendered = summarise(value)
-        if (rendered !== null && (TEXTUAL_KEYS.has(key) || typeof value === 'string')) {
-            lines.push(`      ${key}: ${rendered}`)
-        }
+const TOOL_FOR_KIND: Record<SlotKind, string> = {
+    text: 'edit_text',
+    richText: 'edit_rich_text',
+    image: 'set_section_image',
+    fixed: '',
+}
+
+const renderValue = (slot: Slot, indent: string): string => {
+    if (slot.type === 'richText') {
+        if (!isLexical(slot.value)) return '(empty)'
+        const markdown = lexicalToMarkdown(slot.value)
+        return markdown ? `\n${markdown.replace(/^/gm, `${indent}  `)}` : '(empty)'
     }
+    if (slot.type === 'upload') {
+        const id = mediaIdOf(slot.value)
+        return id ? `media ${id}` : '(empty)'
+    }
+    if (typeof slot.value === 'string') {
+        if (!slot.value) return '(empty)'
+        return slot.value.length > 300 ? `${slot.value.slice(0, 300)}…` : slot.value
+    }
+    if (slot.value === null || slot.value === undefined) return '(empty)'
+    return JSON.stringify(slot.value)
+}
+
+const describeSlot = (slot: Slot, indent: string, lens: SlotLens): string[] => {
+    const kind = lens.kind(slot)
+    const rendered = renderValue(slot, indent)
+    const label = `${indent}${slot.path} (${KIND_LABEL[kind]}, ${TOOL_FOR_KIND[kind]}):`
+    const lines = [rendered.startsWith('\n') ? `${label}${rendered}` : `${label} ${rendered}`]
+    if (kind === 'richText' && lexicalContainsUneditableNodes(slot.value)) {
+        lines.push(`${indent}  NOTE: this embeds images or blocks, so edit_rich_text will refuse to replace it.`)
+    }
+    return lines
+}
+
+const describeSection = (
+    section: Record<string, any>,
+    index: number,
+    blockFields: Record<string, any>[] | null,
+    lens: SlotLens,
+): string => {
+    const header = `  [${index}] blockType: ${section.blockType} · sectionId: ${section.id}`
+    if (!blockFields) {
+        return `${header}\n      This block is not in the schema, so its fields cannot be listed. It has to be edited in the CMS.`
+    }
+
+    const slots = collectSlots(blockFields, section)
+    const lines = [header]
+    const fixed: string[] = []
+
+    for (const slot of slots) {
+        if (lens.kind(slot) === 'fixed') {
+            fixed.push(`${slot.path} (${slot.type})`)
+            continue
+        }
+        lines.push(...describeSlot(slot, '      ', lens))
+    }
+
+    if (fixed.length) lines.push(`      set in the CMS, not here: ${fixed.join(', ')}`)
+    if (lines.length === 1) lines.push('      This block carries no editable text or images.')
     return lines.join('\n')
 }
+
+const unknownFieldMessage = (field: string, label: string, slots: Slot[], lens: SlotLens): string => {
+    const text = lens.pathsOf(slots, 'text')
+    const rich = lens.pathsOf(slots, 'richText')
+    const image = lens.pathsOf(slots, 'image')
+    return [
+        `"${field}" is not a field you can write on ${label}, so nothing was written and no draft was created.`,
+        text.length ? `Text fields, which edit_text can set: ${text.join(', ')}.` : 'It has no plain text fields.',
+        rich.length ? `Rich text fields, which need edit_rich_text: ${rich.join(', ')}.` : '',
+        image.length ? `Image fields, which need set_section_image: ${image.join(', ')}.` : '',
+    ]
+        .filter(Boolean)
+        .join('\n')
+}
+
+const wrongToolMessage = (slot: Slot, sectionId: string | undefined, lens: SlotLens): string => {
+    const kind = lens.kind(slot)
+    if (kind === 'richText') {
+        const target = sectionId ? ` with sectionId "${sectionId}" and field "${slot.path}"` : ` with field "${slot.path}"`
+        return `"${slot.path}" is rich text, so nothing was written. Use edit_rich_text${target}.`
+    }
+    if (kind === 'image') {
+        const tool = sectionId ? 'set_section_image' : 'set_image'
+        return `"${slot.path}" is an image, so nothing was written. Use ${tool} with a media id.`
+    }
+    const role = sectionId
+        ? 'It sets how the section looks rather than what it says'
+        : 'It is part of how the document is filed rather than something a reader sees'
+    return `"${slot.path}" is a ${slot.type} field and nothing was written. ${role}, so it has to be changed in the CMS.`
+}
+
+const lengthProblem = (slot: Slot, value: string): string | null => {
+    const limit = slot.maxLength ?? (slot.path.endsWith('metaDescription') ? MAX_META_DESCRIPTION : undefined)
+    if (limit === undefined || value.length <= limit) return null
+    return `"${slot.path}" is capped at ${limit} characters by the schema. It is currently ${value.length}. Shorten it and try again.`
+}
+
+const sectionById = (doc: any, sectionId: unknown): any =>
+    (Array.isArray(doc?.sections) ? doc.sections : []).find((section: any) => String(section.id) === String(sectionId))
+
+const richTextMatches = (saved: unknown, expected: string): boolean =>
+    lexicalToMarkdown(saved).trim() === lexicalToMarkdown(markdownToLexical(expected)).trim()
+
+/**
+ * Payload drops keys that are not in the schema, so a write can come back clean while persisting
+ * nothing. Every writer reads its own change back rather than echoing the argument it was handed.
+ */
+const notPersisted = (where: string, locale: unknown, saved: unknown): string =>
+    [
+        `The write did not persist. ${where} (${locale}) still reads:`,
+        saved === null || saved === undefined || saved === '' ? '(empty)' : String(saved),
+        'Nothing else was changed. This one has to be done in the CMS.',
+    ].join('\n')
 
 const loadDoc = async (collection: string, id: unknown, locale: string | undefined, ctx: ToolContext) => {
     const payload = ctx.payload
@@ -125,8 +236,10 @@ export const CLIENT_INSTRUCTIONS = `This server edits one website's content.
 
 How to work:
 - Start with list_content to find a document id, then get_document to see its fields, its sections and their sectionIds.
+- get_document lists every field the schema defines, including the empty ones, with the tool that changes each and the exact path to pass as "field". Trust it as the full picture. A field that is not in that listing does not exist, and the writers will refuse it rather than pretend.
 - create_document makes a new page, post, project or tool as a draft. You do not need the CMS admin for this.
-- edit_text changes one field inside one section. edit_field changes a plain top-level field such as title or metaDescription. edit_rich_text replaces a body, so read the current one first because it overwrites the whole field.
+- edit_text changes one plain text field. edit_field changes a plain text field that sits on the document itself rather than inside a section. edit_rich_text replaces a body of prose, in a section when you pass a sectionId and on the document itself when you do not, so read the current one first because it overwrites the whole field.
+- Sections cannot be added or removed here, only filled in. If a page has no slot for what is being asked, say so and let them add the section in the CMS rather than writing the text somewhere it does not belong.
 - rename_url changes an address. Never try to set slug or path through edit_field.
 - Images cannot be sent through this connection, so pasting one into the chat does not reach the site. Call request_upload_link, give them the link it returns, then call collect_new_images with the timestamp from the same reply. That waits for the file and hands you the ids by itself. Describe each image with set_image_alt in every locale, then place it with set_section_image for a page section, or set_image for a blog post's main or social image.
 - When a tool hands you a link, relay it as a clickable markdown link in your reply. Never wrap a link in backticks or a code block; it stops being clickable.
@@ -175,7 +288,7 @@ export const TOOLS: McpTool[] = [
     {
         name: 'get_document',
         description:
-            'Read one document in one locale, flattened into a readable list. Sections show their sectionId and the text fields that edit_text can change.',
+            'Read one document in one locale. Every field is listed against the schema, including the ones that are currently empty, with the tool that changes each. A field that is not in this listing does not exist on the document, so do not try to write it.',
         scope: MCP_SCOPES.contentRead,
         inputSchema: {
             type: 'object',
@@ -189,31 +302,30 @@ export const TOOLS: McpTool[] = [
         },
         run: async (args, ctx) => {
             const collection = resolveCollection(args.collection)
+            const payload = ctx.payload
             const doc = await loadDoc(collection, args.id, args.locale, ctx)
 
+            const lens = slotLens(payload)
             const lines = [
                 `${collection} ${doc.id} · ${doc.name ?? doc.title} · path ${doc.path ?? '(derived)'} · status ${doc._status ?? 'unknown'} · locale ${args.locale}`,
             ]
 
-            for (const key of ['title', 'name', 'metaTitle', 'metaDescription', 'excerpt']) {
-                const rendered = summarise(doc[key])
-                if (rendered) lines.push(`  ${key}: ${rendered}`)
+            for (const type of ['text', 'textarea', 'richText']) {
+                for (const field of topLevelFieldsOfType(payload, collection, type)) {
+                    const [slot] = collectSlots([field], doc)
+                    if (!slot || lens.kind(slot) === 'fixed') continue
+                    lines.push(...describeSlot(slot, '  ', lens))
+                }
             }
 
             const sections = Array.isArray(doc.sections) ? doc.sections : []
             if (sections.length) {
                 lines.push('sections:')
-                lines.push(...sections.map((section: any, index: number) => describeSection(section, index)))
-            }
-
-            for (const key of ['content', 'body']) {
-                if (!isLexical(doc[key])) continue
-                const markdown = lexicalToMarkdown(doc[key])
-                lines.push(`${key} (edit with edit_rich_text):`)
-                lines.push(markdown ? markdown.replace(/^/gm, '  ') : '  (empty)')
-                if (lexicalContainsUneditableNodes(doc[key])) {
-                    lines.push('  NOTE: this body embeds images or blocks, so edit_rich_text will refuse to replace it.')
-                }
+                lines.push(
+                    ...sections.map((section: any, index: number) =>
+                        describeSection(section, index, findBlockFields(payload, collection, section.blockType), lens),
+                    ),
+                )
             }
 
             return lines.join('\n')
@@ -309,7 +421,7 @@ export const TOOLS: McpTool[] = [
     {
         name: 'edit_text',
         description:
-            'Change one text field inside one section, in one locale, and save as a draft. Block ids are preserved so the other locale keeps its content. Never publishes.',
+            'Change one text field inside one section, in one locale, and save as a draft. Take the field name from get_document, which lists the exact path to use, including nested ones such as "introduction.content" or "cards.0.url". Block ids are preserved so the other locale keeps its content. Never publishes.',
         scope: MCP_SCOPES.contentWrite,
         inputSchema: {
             type: 'object',
@@ -317,7 +429,7 @@ export const TOOLS: McpTool[] = [
                 collection: collectionEnum,
                 id: { type: ['string', 'number'] },
                 sectionId: { type: 'string' },
-                field: { type: 'string' },
+                field: { type: 'string', description: 'Field path as get_document lists it' },
                 locale: { type: 'string' },
                 value: { type: 'string' },
             },
@@ -330,14 +442,28 @@ export const TOOLS: McpTool[] = [
             const doc = await loadDoc(collection, args.id, args.locale, ctx)
 
             const sections = Array.isArray(doc.sections) ? doc.sections : []
-            const target = sections.find((section: any) => String(section.id) === String(args.sectionId))
+            const target = sectionById(doc, args.sectionId)
             if (!target) return `No section with id ${args.sectionId} on ${collection} ${args.id}.`
 
-            const existing = target[args.field]
-            if (existing !== undefined && existing !== null && typeof existing !== 'string') {
-                return `Field "${args.field}" is not plain text, so edit_text cannot change it.`
+            const blockFields = findBlockFields(payload, collection, target.blockType)
+            if (!blockFields) {
+                return `The ${target.blockType} block is not in the schema, so this section has to be edited in the CMS.`
             }
-            target[args.field] = args.value
+
+            const lens = slotLens(payload)
+            const slots = collectSlots(blockFields, target)
+            const slot = slots.find((entry) => entry.path === args.field)
+            if (!slot) return unknownFieldMessage(args.field, `the ${target.blockType} block`, slots, lens)
+            if (lens.kind(slot) !== 'text') return wrongToolMessage(slot, String(args.sectionId), lens)
+
+            const tooLong = lengthProblem(slot, String(args.value))
+            if (tooLong) return tooLong
+
+            if (slot.value === args.value) {
+                return `Section ${args.sectionId} field "${args.field}" already reads that in ${args.locale}. Nothing was written, so no new draft was created.`
+            }
+
+            setAtPath(target, args.field, args.value)
 
             await payload.update({
                 collection: collection as never,
@@ -348,19 +474,25 @@ export const TOOLS: McpTool[] = [
                 ...callArgs(ctx),
             })
 
-            return `Saved as a draft. ${collection} ${args.id}, section ${args.sectionId}, field "${args.field}" (${args.locale}) is now:\n${args.value}`
+            const fresh = await loadDoc(collection, args.id, args.locale, ctx)
+            const saved = valueAtPath(sectionById(fresh, args.sectionId), args.field)
+            const where = `${collection} ${args.id}, section ${args.sectionId}, field "${args.field}"`
+            if (saved !== args.value) return notPersisted(where, args.locale, saved)
+
+            return `Saved as a draft and read back to confirm. ${where} (${args.locale}) is now:\n${saved}`
         },
     },
     {
         name: 'edit_field',
-        description: `Change one plain text field on a document in one locale. Saves as a draft. Allowed fields: ${[...PLAIN_TEXT_FIELDS].join(', ')}. Use edit_text for section content, edit_rich_text for a body, and rename_url to change an address.`,
+        description:
+            'Change one plain text field that sits on the document itself rather than inside a section, such as its title or its metaDescription. Saves as a draft. The fields differ per collection, so take the name from get_document. Use edit_text for section content, edit_rich_text for a body, and rename_url to change an address.',
         scope: MCP_SCOPES.contentWrite,
         inputSchema: {
             type: 'object',
             properties: {
                 collection: collectionEnum,
                 id: { type: ['string', 'number'] },
-                field: { type: 'string', enum: [...PLAIN_TEXT_FIELDS] },
+                field: { type: 'string', description: 'Field name as get_document lists it' },
                 locale: { type: 'string' },
                 value: { type: 'string' },
             },
@@ -369,20 +501,40 @@ export const TOOLS: McpTool[] = [
         },
         run: async (args, ctx) => {
             const collection = resolveCollection(args.collection)
-
-            if (!PLAIN_TEXT_FIELDS.has(args.field)) {
-                if (args.field === 'sections') return 'Use edit_text to change a section.'
-                if (args.field === 'content' || args.field === 'body') return 'Use edit_rich_text to change a body.'
-                if (args.field === 'slug' || args.field === 'path') return 'Use rename_url to change an address, so the old one gets redirected.'
-                return `"${args.field}" cannot be set through this connection. Editable fields are: ${[...PLAIN_TEXT_FIELDS].join(', ')}.`
-            }
-
-            if (args.field === 'metaDescription' && String(args.value).length > MAX_META_DESCRIPTION) {
-                return `metaDescription is capped at ${MAX_META_DESCRIPTION} characters by the schema. It is currently ${String(args.value).length}. Shorten it and try again.`
-            }
-
             const payload = ctx.payload
+
+            if (args.field === 'sections') return 'Use edit_text to change a section.'
+            if (args.field === 'slug' || args.field === 'path') {
+                return 'Use rename_url to change an address, so the old one gets redirected.'
+            }
+
+            const definition = topLevelField(payload, collection, args.field)
+            if (!definition) {
+                const editable = topLevelFieldsOfType(payload, collection, 'text')
+                    .concat(topLevelFieldsOfType(payload, collection, 'textarea'))
+                    .map((field) => field.name)
+                    .filter((name) => name !== 'slug' && name !== 'path')
+                return [
+                    `"${args.field}" is not a field on a ${collection} document, so nothing was written and no draft was created.`,
+                    editable.length
+                        ? `The ones edit_field can set here are: ${editable.join(', ')}.`
+                        : 'This collection has no plain text fields of its own.',
+                    'Anything else lives inside a section. Read the document with get_document and use edit_text with the section it belongs to.',
+                ].join('\n')
+            }
+
             const doc = await loadDoc(collection, args.id, args.locale, ctx)
+            const lens = slotLens(payload)
+            const [slot] = collectSlots([definition], doc)
+            if (!slot) return `"${args.field}" cannot be set through this connection.`
+            if (lens.kind(slot) !== 'text') return wrongToolMessage(slot, undefined, lens)
+
+            const tooLong = lengthProblem(slot, String(args.value))
+            if (tooLong) return tooLong
+
+            if (slot.value === args.value) {
+                return `${collection} ${args.id} field "${args.field}" already reads that in ${args.locale}. Nothing was written, so no new draft was created.`
+            }
 
             await payload.update({
                 collection: collection as never,
@@ -393,7 +545,12 @@ export const TOOLS: McpTool[] = [
                 ...callArgs(ctx),
             })
 
-            return `Saved as a draft. ${collection} ${args.id} field "${args.field}" (${args.locale}) is now:\n${args.value}`
+            const fresh = await loadDoc(collection, args.id, args.locale, ctx)
+            const saved = fresh[args.field]
+            const where = `${collection} ${args.id} field "${args.field}"`
+            if (saved !== args.value) return notPersisted(where, args.locale, saved)
+
+            return `Saved as a draft and read back to confirm. ${where} (${args.locale}) is now:\n${saved}`
         },
     },
     {
@@ -461,7 +618,7 @@ export const TOOLS: McpTool[] = [
     {
         name: 'edit_rich_text',
         description:
-            'Replace the body of a document, such as a blog post, and save as a draft. Write plain prose with a blank line between paragraphs. Use ## for a subheading, - for bullets, > for a quote and **bold** for emphasis. Read the current body with get_document first, because this replaces the whole field rather than editing part of it.',
+            'Replace a body of prose and save as a draft. Pass a sectionId for a rich text field inside a page section, or leave it out for a document body such as a blog post. Write plain prose with a blank line between paragraphs. Use ## for a subheading, - for bullets, > for a quote and **bold** for emphasis. Read the current text with get_document first, because this replaces the whole field rather than editing part of it.',
         scope: MCP_SCOPES.contentWrite,
         inputSchema: {
             type: 'object',
@@ -470,7 +627,8 @@ export const TOOLS: McpTool[] = [
                 id: { type: ['string', 'number'] },
                 locale: { type: 'string' },
                 value: { type: 'string' },
-                field: { type: 'string', description: 'Defaults to "content".' },
+                sectionId: { type: 'string', description: 'Set this when the field lives inside a page section' },
+                field: { type: 'string', description: 'Field path as get_document lists it. Defaults to "content".' },
             },
             required: ['id', 'locale', 'value'],
             additionalProperties: false,
@@ -480,13 +638,46 @@ export const TOOLS: McpTool[] = [
             const field = typeof args.field === 'string' && args.field ? args.field : 'content'
             const payload = ctx.payload
             const doc = await loadDoc(collection, args.id, args.locale, ctx)
+            const inSection = typeof args.sectionId === 'string' && args.sectionId
 
-            const existing = doc[field]
-            if (existing !== undefined && existing !== null && !isLexical(existing)) {
-                return `Field "${field}" is not rich text. Use edit_field for plain text or edit_text for section content.`
+            const sections = Array.isArray(doc.sections) ? doc.sections : []
+            let owner = documentFields(payload, collection)
+            let target: any = null
+
+            if (inSection) {
+                target = sectionById(doc, args.sectionId)
+                if (!target) return `No section with id ${args.sectionId} on ${collection} ${args.id}.`
+                const blockFields = findBlockFields(payload, collection, target.blockType)
+                if (!blockFields) {
+                    return `The ${target.blockType} block is not in the schema, so this section has to be edited in the CMS.`
+                }
+                owner = blockFields
             }
-            if (lexicalContainsUneditableNodes(existing)) {
+
+            const lens = slotLens(payload)
+            const slots = collectSlots(owner, inSection ? target : doc)
+            const slot = slots.find((entry) => entry.path === field)
+            if (!slot) {
+                const label = inSection ? `the ${target.blockType} block` : `a ${collection} document`
+                return unknownFieldMessage(field, label, slots, lens)
+            }
+            if (lens.kind(slot) !== 'richText') {
+                return wrongToolMessage(slot, inSection ? String(args.sectionId) : undefined, lens)
+            }
+
+            if (lexicalContainsUneditableNodes(slot.value)) {
                 return `The current "${field}" embeds images or blocks. Replacing it would delete them, so this has to be edited in the CMS instead.`
+            }
+            if (isLexical(slot.value) && richTextMatches(slot.value, args.value)) {
+                return `"${field}" already reads that in ${args.locale}. Nothing was written, so no new draft was created.`
+            }
+
+            const data: Record<string, unknown> = { ...identifyingFields(doc), _status: 'draft' }
+            if (inSection) {
+                setAtPath(target, field, markdownToLexical(args.value))
+                data.sections = sections
+            } else {
+                data[field] = markdownToLexical(args.value)
             }
 
             await payload.update({
@@ -494,17 +685,26 @@ export const TOOLS: McpTool[] = [
                 id: args.id,
                 locale: args.locale,
                 draft: true,
-                data: { ...identifyingFields(doc), [field]: markdownToLexical(args.value), _status: 'draft' } as never,
+                data: data as never,
                 ...callArgs(ctx),
             })
 
-            const roundTrip = lexicalToMarkdown(markdownToLexical(args.value))
-            return `Saved as a draft. ${collection} ${args.id} "${field}" (${args.locale}) now reads:\n\n${roundTrip}`
+            const fresh = await loadDoc(collection, args.id, args.locale, ctx)
+            const saved = inSection ? valueAtPath(sectionById(fresh, args.sectionId), field) : valueAtPath(fresh, field)
+            const where = inSection
+                ? `${collection} ${args.id}, section ${args.sectionId}, field "${field}"`
+                : `${collection} ${args.id} "${field}"`
+            if (!isLexical(saved) || !richTextMatches(saved, args.value)) {
+                return notPersisted(where, args.locale, isLexical(saved) ? lexicalToMarkdown(saved) : saved)
+            }
+
+            return `Saved as a draft and read back to confirm. ${where} (${args.locale}) now reads:\n\n${lexicalToMarkdown(saved)}`
         },
     },
     {
         name: 'set_section_image',
-        description: 'Point a section image field at an existing media item and save as a draft.',
+        description:
+            'Point a section image field at an existing media item and save as a draft. Take the field name from get_document, which lists every image slot on the section including the empty ones.',
         scope: MCP_SCOPES.contentWrite,
         inputSchema: {
             type: 'object',
@@ -512,7 +712,7 @@ export const TOOLS: McpTool[] = [
                 collection: collectionEnum,
                 id: { type: ['string', 'number'] },
                 sectionId: { type: 'string' },
-                field: { type: 'string' },
+                field: { type: 'string', description: 'Field path as get_document lists it' },
                 mediaId: { type: ['string', 'number'] },
                 locale: { type: 'string' },
             },
@@ -525,10 +725,25 @@ export const TOOLS: McpTool[] = [
             const doc = await loadDoc(collection, args.id, args.locale, ctx)
 
             const sections = Array.isArray(doc.sections) ? doc.sections : []
-            const target = sections.find((section: any) => String(section.id) === String(args.sectionId))
+            const target = sectionById(doc, args.sectionId)
             if (!target) return `No section with id ${args.sectionId} on ${collection} ${args.id}.`
 
-            target[args.field] = args.mediaId
+            const blockFields = findBlockFields(payload, collection, target.blockType)
+            if (!blockFields) {
+                return `The ${target.blockType} block is not in the schema, so this section has to be edited in the CMS.`
+            }
+
+            const lens = slotLens(payload)
+            const slots = collectSlots(blockFields, target)
+            const slot = slots.find((entry) => entry.path === args.field)
+            if (!slot) return unknownFieldMessage(args.field, `the ${target.blockType} block`, slots, lens)
+            if (lens.kind(slot) !== 'image') return wrongToolMessage(slot, String(args.sectionId), lens)
+
+            if (mediaIdOf(slot.value) === String(args.mediaId)) {
+                return `Section ${args.sectionId} field "${args.field}" already points at media ${args.mediaId}. Nothing was written.`
+            }
+
+            setAtPath(target, args.field, args.mediaId)
 
             await payload.update({
                 collection: collection as never,
@@ -539,7 +754,12 @@ export const TOOLS: McpTool[] = [
                 ...callArgs(ctx),
             })
 
-            return `Saved as a draft. Section ${args.sectionId} field "${args.field}" now points at media ${args.mediaId}.`
+            const fresh = await loadDoc(collection, args.id, args.locale, ctx)
+            const saved = mediaIdOf(valueAtPath(sectionById(fresh, args.sectionId), args.field))
+            const where = `${collection} ${args.id}, section ${args.sectionId}, field "${args.field}"`
+            if (saved !== String(args.mediaId)) return notPersisted(where, args.locale, saved && `media ${saved}`)
+
+            return `Saved as a draft and read back to confirm. Section ${args.sectionId} field "${args.field}" now points at media ${saved}.`
         },
     },
     {
