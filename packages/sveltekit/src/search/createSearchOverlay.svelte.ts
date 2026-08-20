@@ -22,6 +22,7 @@ export interface SearchOverlayController {
     onSubmit(e: SubmitEvent): void
     onResultClick(result: SearchResult, e: MouseEvent): void
     close(): void
+    toggle(): void
     buildSearchUrl(q: string): string
     renderSnippet(snippet: string): string
 }
@@ -149,7 +150,9 @@ export function createSearchOverlay(opts: CreateSearchOverlayOptions = {}): Sear
         }
         const onClick = (e: MouseEvent) => {
             if (!overlayEl) return
-            if (!overlayEl.contains(e.target as Node)) isOpen = false
+            const target = e.target as HTMLElement | null
+            if (target?.closest('[data-search-trigger]')) return
+            if (!overlayEl.contains(target as Node)) isOpen = false
         }
         document.addEventListener('keydown', onKey)
         document.addEventListener('mousedown', onClick)
@@ -177,6 +180,7 @@ export function createSearchOverlay(opts: CreateSearchOverlayOptions = {}): Sear
         onSubmit,
         onResultClick,
         close,
+        toggle() { isOpen = !isOpen },
         buildSearchUrl,
         renderSnippet,
     }
