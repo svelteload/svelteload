@@ -43,6 +43,9 @@ export const Media: CollectionConfig = {
             defaultLimit: 100,
         },
         components: {
+            edit: {
+                Upload: '@cms/components/ShrinkingUpload',
+            },
             views: {
                 list: {
                     actions: ['@cms/components/ScanMediaUsageButton'],

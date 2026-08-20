@@ -27,4 +27,10 @@ export const IMAGE_SRCSET_WIDTHS = {
     massive: 2560,
 } as const
 
+/**
+ * Floor for downscaling a master before upload. Under the largest srcset width sharp would
+ * have to upscale to produce `massive`, so a shrunk original must never go below it.
+ */
+export const MIN_MASTER_DIMENSION = Math.max(...Object.values(IMAGE_SRCSET_WIDTHS))
+
 export type SrcsetSizeName = keyof typeof IMAGE_SRCSET_WIDTHS

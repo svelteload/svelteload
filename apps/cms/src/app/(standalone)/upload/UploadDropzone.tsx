@@ -1,30 +1,11 @@
 'use client'
 
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
-import { MAX_UPLOAD_DIMENSION } from '@svelteload/payload/imageSizes'
+import { shrinkImage } from '@svelteload/payload/uploads/shrinkImage'
 import styles from './upload.module.css'
-
-const REENCODABLE = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
 type Uploaded = { name: string; size: number; preview: string }
 type Progress = { done: number; total: number }
-
-async function shrink(file: File): Promise<Blob> {
-    if (!REENCODABLE.has(file.type)) return file
-
-    const bitmap = await createImageBitmap(file)
-    const scale = Math.min(1, MAX_UPLOAD_DIMENSION / Math.max(bitmap.width, bitmap.height))
-    if (scale === 1 && file.size < 3_000_000) return file
-
-    const canvas = document.createElement('canvas')
-    canvas.width = Math.round(bitmap.width * scale)
-    canvas.height = Math.round(bitmap.height * scale)
-    const context = canvas.getContext('2d')
-    if (!context) return file
-    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-
-    return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob ?? file), 'image/webp', 0.9))
-}
 
 export function UploadDropzone() {
     const [progress, setProgress] = useState<Progress | null>(null)
@@ -44,11 +25,10 @@ export function UploadDropzone() {
         setCloseBlocked(false)
         try {
             for (const file of queue) {
-                const shrunk = await shrink(file)
-                const name = shrunk === file ? file.name : file.name.replace(/\.[^.]+$/, '') + '.webp'
+                const shrunk = await shrinkImage(file)
 
                 const body = new FormData()
-                body.set('file', new File([shrunk], name, { type: shrunk.type || file.type }))
+                body.set('file', shrunk)
 
                 const response = await fetch('/api/media', {
                     method: 'POST',
@@ -68,7 +48,7 @@ export function UploadDropzone() {
 
                 const preview = URL.createObjectURL(shrunk)
                 previews.current.push(preview)
-                setUploaded((current) => [...current, { name, size: shrunk.size, preview }])
+                setUploaded((current) => [...current, { name: shrunk.name, size: shrunk.size, preview }])
                 setProgress((current) => (current ? { ...current, done: current.done + 1 } : current))
             }
         } catch (err) {
