@@ -81,14 +81,20 @@ async function writeIndexRows(
     extraSkipKeys: options.extraSkipKeys,
   })
 
+  // A draft save leaves the main row at its last published state, so the text indexed
+  // here is always the public one. `_status` only turns to 'draft' while a document has
+  // never been published or has been unpublished, which is exactly what search must hide.
+  const status = (fullDoc as { _status?: unknown })._status === 'draft' ? 'draft' : 'published'
+
   const upsert = `
-    INSERT INTO search.search_index (collection, doc_id, locale, title, url, raw_text, tsv, updated_at)
-    VALUES ($1, $2, $3, $4, $5, $6, to_tsvector('simple', $6), NOW())
+    INSERT INTO search.search_index (collection, doc_id, locale, title, url, raw_text, tsv, status, updated_at)
+    VALUES ($1, $2, $3, $4, $5, $6, to_tsvector('simple', $6), $7, NOW())
     ON CONFLICT (collection, doc_id, locale) DO UPDATE SET
       title = EXCLUDED.title,
       url = EXCLUDED.url,
       raw_text = EXCLUDED.raw_text,
       tsv = EXCLUDED.tsv,
+      status = EXCLUDED.status,
       updated_at = NOW()
   `
 
@@ -112,6 +118,7 @@ async function writeIndexRows(
       title[locale] || null,
       url,
       rawText,
+      status,
     ])
   }
 }

@@ -1,4 +1,5 @@
 import type { Payload } from 'payload'
+import { ensureSearchSchema } from './setup'
 
 export interface SearchResult {
   collection: string
@@ -38,15 +39,17 @@ export async function runSearch(
     type?: string
     limit?: number
     offset?: number
+    includeDrafts?: boolean
   },
 ): Promise<SearchResponse> {
-  const { query, locale, type, limit = 20, offset = 0 } = params
+  const { query, locale, type, limit = 20, offset = 0, includeDrafts = false } = params
   const trimmed = query.trim()
 
   if (!trimmed) {
     return { query: '', locale, results: [], totalHits: 0, byCollection: {} }
   }
 
+  await ensureSearchSchema(payload)
   const pool = (payload.db as unknown as { pool: { query: (sql: string, values?: unknown[]) => Promise<{ rows: unknown[] }> } }).pool
 
   const tokens = tsqueryTokens(trimmed)
@@ -56,6 +59,7 @@ export async function runSearch(
   const likePattern = `%${escapeLike(trimmed)}%`
 
   const collectionFilter = type ? `AND si.collection = $7` : ''
+  const statusFilter = includeDrafts ? '' : `AND si.status = 'published'`
   const countParams: unknown[] = [orTsq, likePattern]
   const mainParams: unknown[] = [
     andTsq,
@@ -75,11 +79,12 @@ export async function runSearch(
         CASE WHEN length($1) = 0 THEN NULL::tsquery ELSE to_tsquery('simple', $1) END AS tsq_or
     )
     SELECT
-      collection,
-      COUNT(DISTINCT doc_id)::int AS n
-    FROM search.search_index, q
-    WHERE (q.tsq_or IS NOT NULL AND tsv @@ q.tsq_or) OR raw_text ILIKE $2
-    GROUP BY collection
+      si.collection,
+      COUNT(DISTINCT si.doc_id)::int AS n
+    FROM search.search_index si, q
+    WHERE ((q.tsq_or IS NOT NULL AND si.tsv @@ q.tsq_or) OR si.raw_text ILIKE $2)
+      ${statusFilter}
+    GROUP BY si.collection
   `
 
   const limitIdx = type ? 8 : 7
@@ -114,8 +119,8 @@ export async function runSearch(
         ) AS score
       FROM search.search_index si, q
       WHERE
-        (q.tsq_or IS NOT NULL AND si.tsv @@ q.tsq_or)
-        OR si.raw_text ILIKE $2
+        ((q.tsq_or IS NOT NULL AND si.tsv @@ q.tsq_or) OR si.raw_text ILIKE $2)
+        ${statusFilter}
     ),
     best AS (
       SELECT DISTINCT ON (si.collection, si.doc_id)

@@ -60,7 +60,7 @@ ${PREVIEW_THEME_CSS}
     color: var(--sl-text);
   }
   main { width: 100%; max-width: 30rem; }
-  .logo { display: block; width: 100%; max-width: 400px; height: auto; max-height: 100px; margin: 0 auto 1rem; }
+  .logo { display: block; max-width: 100%; height: auto; max-height: 100px; margin: 0 auto 1rem; }
   .intro { color: var(--sl-muted); text-align: center; margin: 0 0 2rem; }
   label { display: block; margin: 0 0 0.5rem; }
   .req { color: var(--sl-required); }

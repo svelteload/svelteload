@@ -3,7 +3,7 @@ import type { RequestHandler } from '@sveltejs/kit'
 import { runSearch } from '@cms/plugins/searchPlugin/runSearch'
 import { getPayloadInstance } from './payload'
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
     const q = url.searchParams.get('q') ?? ''
     const locale = url.searchParams.get('locale') || 'en'
     const type = url.searchParams.get('type') ?? undefined
@@ -14,6 +14,13 @@ export const GET: RequestHandler = async ({ url }) => {
     const offset = Math.max(parseInt(offsetParam ?? '0', 10) || 0, 0)
 
     const payload = await getPayloadInstance()
-    const response = await runSearch(payload, { query: q, locale, type, limit, offset })
+    const response = await runSearch(payload, {
+        query: q,
+        locale,
+        type,
+        limit,
+        offset,
+        includeDrafts: locals.isPreview,
+    })
     return json(response)
 }
