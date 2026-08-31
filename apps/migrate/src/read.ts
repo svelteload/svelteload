@@ -33,6 +33,26 @@ export interface CapturedPage {
     translations: Record<string, { runs: string[]; title: string }>
 }
 
+export interface CapturedPost {
+    /** What the app addresses it by, taken off the end of the path. */
+    slug: string
+    title: string
+    excerpt: string
+    /** The prose, as markup, which is the one document field that holds html rather than a value. */
+    body: string
+    /** ISO, from a <time datetime> where the page has one. Empty when the page never says. */
+    date: string
+    image: string
+    tags: string[]
+    /**
+     * The post's own section, with data-field written onto the elements holding each of the values
+     * above. One of these becomes the page that every document of this type renders through, so it
+     * is the design of a post rather than one post's content.
+     */
+    template: string
+    css: string
+}
+
 export interface CapturedSite {
     origin: string
     locales: string[]
@@ -198,5 +218,130 @@ export function readDocument(): {
             ...sections,
             ...(footer ? [describe(footer, 'footer', 0)] : []),
         ],
+    }
+}
+
+/**
+ * A post, read as a document rather than as a page.
+ *
+ * The hard half is not the content, it is the template. Two hundred posts have to become two hundred
+ * rows and one page, and that page has to carry `data-field` on the elements that hold the title, the
+ * date, the picture and the prose. Working that out by counting text runs and splicing strings is
+ * fragile in exactly the way this whole app avoids, so it is done here instead, where there is a real
+ * DOM: the section is cloned, the fields are found by what they are, and the attributes are set on the
+ * clone. What comes back is markup the app can already bind, produced by the browser rather than by a
+ * regular expression.
+ *
+ * The original is never touched, so the same page can still be read as a page if it turns out not to
+ * be a document after all.
+ */
+export function readPost(): {
+    title: string
+    excerpt: string
+    body: string
+    date: string
+    image: string
+    tags: string[]
+    template: string
+    css: string
+} | null {
+    const main = document.querySelector('main') ?? document.body
+
+    // The post's own section is the one holding the h1. A layout usually wraps it in a hero and a
+    // body, and taking the whole main would take the related-posts grid with it.
+    const heading = main.querySelector('h1')
+    if (!heading) return null
+
+    const container =
+        Array.from(main.children).find((child) => child.contains(heading)) ?? (main as Element)
+
+    const time = container.querySelector('time[datetime]') as HTMLTimeElement | null
+
+    // The prose, which is the element holding the most text that is not the heading itself. A post
+    // body is always the longest thing on the page by a wide margin, so this does not need to know
+    // what any project calls its content wrapper.
+    let prose: Element | null = null
+    let longest = 0
+    container.querySelectorAll('div, article, section').forEach((element) => {
+        if (element.contains(heading)) return
+        const length = (element.textContent ?? '').trim().length
+        if (length > longest) {
+            longest = length
+            prose = element
+        }
+    })
+
+    const picture = container.querySelector('img') as HTMLImageElement | null
+
+    const tags = Array.from(container.querySelectorAll('[class*="tag" i], [class*="category" i]'))
+        .map((element) => (element.textContent ?? '').trim())
+        .filter((text) => text.length > 0 && text.length < 40)
+
+    // Everything below is done on a clone, so marking the fields cannot change the page that is
+    // still being read.
+    const clone = container.cloneNode(true) as Element
+    const mark = (source: Element | null, field: string) => {
+        if (!source) return
+        // The same position in the clone, reached by walking the index path rather than by a
+        // selector, since a hashed Svelte class is not something to match on twice.
+        const path: number[] = []
+        let node: Element | null = source
+        while (node && node !== container) {
+            const parent: Element | null = node.parentElement
+            if (!parent) break
+            path.unshift(Array.prototype.indexOf.call(parent.children, node))
+            node = parent
+        }
+        let target: Element | null = clone
+        for (const index of path) target = (target?.children[index] as Element) ?? null
+        target?.setAttribute('data-field', field)
+    }
+
+    mark(heading, 'title')
+    mark(time, 'date')
+    mark(picture, 'image')
+    mark(prose, 'body')
+
+    const cssFor = (element: Element): string => {
+        const collected: string[] = []
+        for (const sheet of Array.from(document.styleSheets)) {
+            let rules: CSSRuleList
+            try {
+                rules = sheet.cssRules
+            } catch {
+                continue
+            }
+            for (const rule of Array.from(rules)) {
+                const style = rule as CSSStyleRule
+                if (!style.selectorText) continue
+                const matches = style.selectorText.split(',').filter((selector) => {
+                    const cleaned = selector.replace(/::?[a-z-]+(\([^)]*\))?/gi, '').trim()
+                    if (!cleaned) return false
+                    try {
+                        return element.matches(cleaned) || element.querySelector(cleaned) !== null
+                    } catch {
+                        return false
+                    }
+                })
+                if (matches.length) collected.push(`${matches.join(',')} { ${style.style.cssText} }`)
+            }
+        }
+        return collected.join('\n')
+    }
+
+    return {
+        title: (heading.textContent ?? '').trim(),
+        excerpt:
+            document.querySelector('meta[name="description"]')?.getAttribute('content') ??
+            document.querySelector('meta[property="og:description"]')?.getAttribute('content') ??
+            '',
+        body: prose ? (prose as Element).innerHTML : '',
+        date: time?.getAttribute('datetime') ?? '',
+        image: picture?.currentSrc || picture?.src || '',
+        tags: Array.from(new Set(tags)),
+        // The app binds one item on a detail page, so the template is written the way every other
+        // listing is written and nothing new has to understand it.
+        template: `<div data-bind="document"><article data-item>${clone.outerHTML}</article></div>`,
+        css: cssFor(container),
     }
 }

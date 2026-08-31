@@ -11,17 +11,36 @@
  *       --app https://app.nodebrush.com \
  *       --token sla_... \
  *       --browser wss://browserless.nodebrush.com?token=... \
+ *       [--documents blog:/nyheter,projects:/projekt] \
+ *       [--redirects ./old-paths.json] \
  *       [--dry]
  *
  * Nothing is written until every page has been read, so a failure halfway leaves the target
  * untouched rather than half a site.
+ *
+ * `--documents` is the one thing worth getting right. Without it every blog post in the sitemap
+ * arrives as a page, which is wrong twice over: the listing that was meant to show them binds to
+ * nothing, and the client can never write the next one. With it, each prefix becomes a document type,
+ * every address under it becomes a row, and the first of them is read a second way to become the one
+ * page the whole type renders through. Run `--dry` first: it prints the sitemap grouped by prefix,
+ * which is what the flag should be written from.
  */
 
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { connect, launch, type Browser, type Page } from 'puppeteer-core'
-import { readDocument, type CapturedPage, type CapturedSection } from './read.ts'
+import { readDocument, readPost, type CapturedPage, type CapturedSection } from './read.ts'
 import { mapTheme, retokenize, unreachable } from './theme.ts'
 import { carryImages, repoint } from './media.ts'
+import {
+    describeShape,
+    isUnder,
+    learnPrefixes,
+    parseTypes,
+    slugOf,
+    tokenFor,
+    type DocumentPayload,
+    type TypePlan,
+} from './documents.ts'
 
 interface Options {
     site: string
@@ -31,6 +50,10 @@ interface Options {
     chrome: string
     dry: boolean
     limit: number
+    /** `blog:/blog,projects:/projekt`. Everything under one of these arrives as a row, not a page. */
+    types: TypePlan[]
+    /** A json file of { from, to, status } for addresses the old site answered for and this must too. */
+    redirects: string
 }
 
 /**
@@ -66,6 +89,8 @@ function options(): Options {
         chrome: value('chrome', argv.includes('--chrome') ? '' : (existsSync(LOCAL_CHROME[0]) ? LOCAL_CHROME[0] : '')),
         dry: argv.includes('--dry'),
         limit: Number(value('limit', '200')),
+        types: parseTypes(value('documents')),
+        redirects: value('redirects'),
     }
 
     if (!parsed.chrome && argv.includes('--chrome')) {
@@ -125,14 +150,36 @@ async function sitemap(origin: string): Promise<Array<Record<string, string>>> {
     return groups
 }
 
-async function capture(page: Page, url: string) {
+async function capturePage(page: Page, url: string) {
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 45_000 })
     // Everything below the fold has to have been asked for, or half the pictures come back as the
     // lazy-loading placeholder rather than as the image.
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
     await new Promise((resolve) => setTimeout(resolve, 600))
     await page.evaluate(() => window.scrollTo(0, 0))
+}
+
+async function capture(page: Page, url: string) {
+    await capturePage(page, url)
     return page.evaluate(readDocument)
+}
+
+/**
+ * Every picture an html fragment points at, including the widths a srcset lists, since grouping those
+ * back into one file is what `carryImages` does next.
+ */
+function sourcesIn(html: string): string[] {
+    const found: string[] = []
+
+    for (const match of html.matchAll(/\ssrc\s*=\s*"([^"]+)"/gi)) found.push(match[1])
+    for (const match of html.matchAll(/\ssrcset\s*=\s*"([^"]+)"/gi)) {
+        for (const candidate of match[1].split(',')) {
+            const url = candidate.trim().split(/\s+/)[0]
+            if (url) found.push(url)
+        }
+    }
+
+    return found.filter((url) => url && !url.startsWith('data:'))
 }
 
 function pathOf(url: string): { locale: string; path: string } {
@@ -171,6 +218,31 @@ async function main() {
 
     const locales = [...new Set(groups.flatMap((group) => Object.keys(group)))]
     const own = locales[0]
+
+    // Which addresses are rows rather than pages. Learnt per language off the sitemap, so a blog at
+    // /nyheter in Swedish and /news in English is one type with two prefixes and nothing declared.
+    for (const plan of opts.types) learnPrefixes(plan, groups, own, pathOf)
+
+    const typeOf = (group: Record<string, string>): TypePlan | null => {
+        const primary = group[own] ?? Object.values(group)[0]
+        const { path } = pathOf(primary)
+        return opts.types.find((plan) => isUnder(path, plan.prefix)) ?? null
+    }
+
+    const pageGroups = groups.filter((group) => !typeOf(group))
+    const documentGroups = groups.filter((group) => typeOf(group))
+
+    if (opts.types.length === 0) {
+        console.log(
+            `no --documents given, so every address becomes a page. What the sitemap looks like:\n` +
+                `${describeShape(groups.map((group) => pathOf(group[own] ?? Object.values(group)[0]).path))}`,
+        )
+    } else {
+        console.log(`${documentGroups.length} of them are documents, ${pageGroups.length} are pages`)
+    }
+
+    const documents: Record<string, DocumentPayload[]> = {}
+    const templates: Record<string, { html: string; css: string }> = {}
     const pages: CapturedPage[] = []
     let variables: Record<string, string> = {}
     let company: Record<string, unknown> | null = null
@@ -179,7 +251,7 @@ async function main() {
     const imageUrls = new Set<string>()
 
     try {
-        for (const group of groups) {
+        for (const group of pageGroups) {
             const primary = group[own] ?? Object.values(group)[0]
             const read = await capture(page, primary)
             const { path } = pathOf(primary)
@@ -230,6 +302,69 @@ async function main() {
 
             pages.push(captured)
         }
+
+        // The documents, read as rows. The first of each type is also read as the design every
+        // document of that type will render through, so the design comes off a real post rather than
+        // being written from a description of one.
+        for (const group of documentGroups) {
+            const plan = typeOf(group)!
+            const primary = group[own] ?? Object.values(group)[0]
+            const { path } = pathOf(primary)
+
+            await capturePage(page, primary)
+            const post = await page.evaluate(readPost)
+            if (!post) {
+                console.log(`skipped ${path}, no heading to read it by`)
+                continue
+            }
+
+            // The hero, and every picture inside the prose. Missing the second set is how a post
+            // reads correctly on the day of the move and loses its illustrations when the old
+            // project is deleted.
+            for (const image of [post.image, ...sourcesIn(post.body), ...sourcesIn(post.template)]) {
+                if (image) imageUrls.add(image)
+            }
+
+            const content: DocumentPayload['content'] = {
+                [own]: {
+                    title: post.title,
+                    excerpt: post.excerpt,
+                    body: post.body,
+                    metaTitle: post.title,
+                    metaDescription: post.excerpt,
+                },
+            }
+            const slugs: Record<string, string> = {}
+
+            for (const [locale, href] of Object.entries(group)) {
+                if (locale === own) continue
+                await capturePage(page, href)
+                const other = await page.evaluate(readPost)
+                slugs[locale] = slugOf(pathOf(href).path)
+                if (!other) continue
+                content[locale] = {
+                    title: other.title,
+                    excerpt: other.excerpt,
+                    body: other.body,
+                    metaTitle: other.title,
+                    metaDescription: other.excerpt,
+                }
+            }
+
+            const list = documents[plan.slug] ?? (documents[plan.slug] = [])
+            list.push({
+                slug: slugOf(path),
+                slugs,
+                status: 'published',
+                publishedAt: post.date || null,
+                tags: post.tags,
+                content,
+                sourceImage: post.image,
+            })
+
+            if (!templates[plan.slug]) templates[plan.slug] = { html: post.template, css: post.css }
+            console.log(`read ${path} as a ${plan.slug} document`)
+        }
     } finally {
         await page.close().catch(() => undefined)
         // A launched browser is a process this started and has to end; a connected one belongs to
@@ -279,13 +414,32 @@ async function main() {
             : undefined,
         header: header ? section(header) : undefined,
         footer: footer ? section(footer) : undefined,
-        pages: pages.map((entry) => ({
-            path: entry.path,
-            paths: entry.paths,
-            title: entry.title,
-            meta: entry.meta,
-            sections: entry.sections.map(section),
-        })),
+        pages: [
+            ...pages.map((entry) => ({
+                path: entry.path,
+                paths: entry.paths,
+                title: entry.title,
+                meta: entry.meta,
+                sections: entry.sections.map(section),
+            })),
+            // One page per type, holding the design every document of that type renders through.
+            // Its own address is reserved rather than real: it is a design, not somewhere to land,
+            // and the app keeps an underscore-first path out of the sitemap for that reason.
+            ...Object.entries(templates).map(([slug, built]) => ({
+                path: `/_${slug}`,
+                paths: {},
+                title: `${slug} detail`,
+                meta: { title: {}, description: {}, image: '' },
+                sections: [
+                    {
+                        name: `${slug}-detail`,
+                        html: built.html,
+                        css: retokenize(built.css, mapping, values),
+                        locales: {},
+                    },
+                ],
+            })),
+        ],
     }
 
     const literals = payload.pages
@@ -299,9 +453,18 @@ async function main() {
     }
 
     console.log(`${imageUrls.size} image urls referenced`)
+    for (const [slug, list] of Object.entries(documents)) {
+        console.log(`${list.length} ${slug} documents`)
+    }
 
     if (opts.dry) {
-        console.log(JSON.stringify({ ...payload, pages: payload.pages.length }, null, 2))
+        console.log(
+            JSON.stringify(
+                { ...payload, pages: payload.pages.length, documents: Object.fromEntries(Object.entries(documents).map(([slug, list]) => [slug, list.length])) },
+                null,
+                2,
+            ),
+        )
         return
     }
 
@@ -330,12 +493,93 @@ async function main() {
         console.log(`repointed ${second.sections} sections at the images now hosted here`)
     }
 
+    // The documents last, because each type has to name the page it renders through and that page
+    // only has an id once the site has been written.
+    if (Object.keys(documents).length) {
+        const detailPages = await pagesOf(opts, first.siteId)
+
+        for (const plan of opts.types) {
+            const list = documents[plan.slug]
+            if (!list?.length) continue
+
+            const written = await putDocuments(opts, first.siteId, {
+                type: {
+                    slug: plan.slug,
+                    name: { [locales[0]]: plan.slug },
+                    paths: { [locales[0]]: plan.prefix, ...plan.prefixes },
+                    detailPageId: detailPages[`/_${plan.slug}`],
+                },
+                documents: list.map(({ sourceImage, ...document }) => ({
+                    ...document,
+                    // The picture came across with every other image on the site, so what the row
+                    // points at is the upload here rather than the address it had on the old host.
+                    // The old address never leaves this tool.
+                    imageToken: tokenFor(sourceImage ?? '', carried),
+                    // A post's prose carries pictures of its own, and those are the ones that would
+                    // have gone on pointing at the previous host until the day it was deleted.
+                    content: Object.fromEntries(
+                        Object.entries(document.content).map(([locale, fields]) => [
+                            locale,
+                            { ...fields, body: repoint(fields.body, carried) },
+                        ]),
+                    ),
+                })),
+            })
+            console.log(`wrote ${written.written} ${plan.slug} documents, skipped ${written.skipped}`)
+        }
+    }
+
+    if (opts.redirects) {
+        const entries = JSON.parse(readFileSync(opts.redirects, 'utf8')) as Array<Record<string, unknown>>
+        const report = await post(opts, `/api/design/${first.siteId}/redirects`, { redirects: entries })
+        console.log(`wrote ${(report as { written: number }).written} redirects`)
+    }
+
     if (first.findings?.length) {
         console.log(`${first.findings.length} sections carry something the token contract would refuse`)
         for (const finding of first.findings.slice(0, 5)) {
             console.log(`  ${finding.page} / ${finding.section}: ${finding.violations[0]?.message ?? ''}`)
         }
     }
+}
+
+/** Every page the import wrote, by path, so a type can name the one it renders through. */
+async function pagesOf(opts: Options, siteId: string): Promise<Record<string, string>> {
+    const response = await fetch(`${opts.app}/api/design/${siteId}/site`, {
+        headers: { authorization: `Bearer ${opts.token}` },
+    })
+    if (!response.ok) throw new Error(`Could not read the site back: ${response.status}`)
+
+    const body = (await response.json()) as { pages: Array<{ id: string; path: string }> }
+    return Object.fromEntries(body.pages.map((page) => [page.path, page.id]))
+}
+
+async function putDocuments(
+    opts: Options,
+    siteId: string,
+    body: unknown,
+): Promise<{ written: number; skipped: number }> {
+    const response = await fetch(`${opts.app}/api/design/${siteId}/documents`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${opts.token}` },
+        body: JSON.stringify(body),
+    })
+
+    const report = await response.json().catch(() => null)
+    if (!response.ok) throw new Error(`The app refused the documents: ${JSON.stringify(report)}`)
+    return report as { written: number; skipped: number }
+}
+
+async function post(opts: Options, path: string, body: unknown): Promise<unknown> {
+    const response = await fetch(`${opts.app}${path}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${opts.token}` },
+        body: JSON.stringify(body),
+    })
+
+    const report = await response.json().catch(() => null)
+    if (!response.ok) throw new Error(`The app refused ${path}: ${JSON.stringify(report)}`)
+    return report
 }
 
 interface Report {
