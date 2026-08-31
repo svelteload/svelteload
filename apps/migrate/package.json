@@ -1,0 +1,19 @@
+{
+  "name": "@svelteload/migrate",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "One-time move of a Svelteload site into nodebrush-app. Run once per project, then delete.",
+  "bin": { "svelteload-migrate": "./src/index.ts" },
+  "scripts": {
+    "migrate": "node --experimental-strip-types src/index.ts",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "puppeteer-core": "^24.15.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "^6.0.3"
+  }
+}
